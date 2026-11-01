@@ -1,0 +1,17 @@
+{
+  "name": "number-pang",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "start": "python3 -m http.server 4173 --bind 127.0.0.1",
+    "dev": "python3 -m http.server 4173 --bind 0.0.0.0",
+    "check": "node --check app.js && node --check engine.js && node --check sw.js && node --check scripts/build.mjs",
+    "build": "node scripts/build.mjs",
+    "setup:cloud": "bash scripts/cloud-setup.sh"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

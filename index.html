@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#f6f4ec"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="두 숫자를 이어 팡! 즐겁게 배우는 더하기와 빼기, 넘버팡."><link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icons/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="./icons/icon-192.png"><link rel="stylesheet" href="./style.css"><title>넘버팡 · 숫자랑 놀자!</title></head>
+<body>
+<header class="brand"><a href="./" aria-label="넘버팡 처음으로"><span class="brand-icon">✳</span> 넘버팡<span class="brand-en">NUMBER PANG</span></a><button id="sound" class="icon-button" aria-label="효과음 끄기" title="효과음">♫</button></header>
+<main>
+<section id="setup" class="screen setup">
+<div class="intro"><span class="eyebrow">작은 발견, 커다란 즐거움</span><h1>숫자랑 놀자,<br><span>넘버팡!</span><i class="spark">✦</i></h1><p>두 숫자를 이어 주면, 정답이 팡!<br>오늘은 어떤 숫자를 찾아볼까?</p><div class="mascots" aria-hidden="true"><div class="mascot yellow">3<span>• ᴗ •</span></div><b>+</b><div class="mascot green">7<span>• ᴗ •</span></div><span class="little-star">✧</span></div><div class="intro-note"><span>✦</span> 틀려도 괜찮아. 다시 해보면 되니까!</div></div>
+<div class="settings card"><div class="card-title"><span class="step">01</span><h2>어떻게 놀까?</h2><span class="mini">준비하기</span></div>
+<div class="segmented"><button class="active" data-mode="manual">내가 정할래</button><button data-mode="random">✧ 랜덤으로!</button></div>
+<div id="manual"><label class="field-label">어떤 계산을 해볼까?</label><div class="operations"><button class="active" data-op="+"><span>+</span>더하기</button><button data-op="-"><span>−</span>빼기</button></div><label class="field-label" for="target">찾고 싶은 숫자</label><div class="target-input"><button id="minus" aria-label="목표 숫자 1 줄이기">−</button><input id="target" type="number" min="0" max="18" value="10" inputmode="numeric" aria-describedby="range"><button id="plus" aria-label="목표 숫자 1 늘리기">+</button></div><p id="range" class="helper">0부터 18까지 고를 수 있어요</p></div>
+<div id="random-info" hidden class="random-info"><span>✧</span><h3>어떤 숫자가 나올까?</h3><p>더하기 또는 빼기와 목표 숫자를<br>넘버팡이 골라줄게!</p></div>
+<div class="rule-strip"><span>◷ <b>60초</b> 동안</span><span>정답마다 <b>+2초</b></span></div><button id="start" class="primary">게임 시작 <span>→</span></button><p id="validation" class="helper" role="alert"></p>
+</div>
+<div class="howto"><span class="pill">이렇게 놀아요</span><p><b>①</b> 숫자를 꾹 <span>→</span> <b>②</b> 옆 숫자로 쓱 <span>→</span> <b>③</b> 정답이면 팡!</p><small>하나씩 톡톡 눌러도 돼요. 대각선은 안 돼요!</small></div>
+<div class="setup-bottom"><span>♕ 최고 기록 <b id="home-best">0</b>점</span><button id="records-button">최근 기록 ↗</button><label><input id="reduce" type="checkbox"> 움직임 줄이기</label><button id="install" hidden>홈 화면에 설치 +</button></div>
+</section>
+<section id="play" class="screen play" hidden><div class="game-heading"><span class="eyebrow">두 숫자를 이어서</span><h2><span id="operation-word">더해서</span> <strong id="goal">10</strong> 만들자!</h2><p id="order-help">옆에 있는 숫자 두 개를 골라봐</p></div><div class="stats"><div><span>남은 시간</span><strong id="time">60</strong><small>초</small></div><div class="score-stat"><span>내 점수</span><strong id="score">0</strong></div><button id="pause" class="icon-button" aria-label="일시정지">Ⅱ</button></div><div id="board-wrap"><div id="board" role="group" aria-label="숫자판, 인접한 숫자 두 개를 순서대로 선택하세요"></div><svg id="connector" aria-hidden="true"><line /></svg><div id="board-message" hidden></div></div><div class="game-footer"><span id="combo">차근차근, 하나씩!</span><span id="equation" aria-live="polite">준비됐지?</span></div><div id="reward" aria-live="polite"></div></section>
+</main><footer id="site-footer">매일 조금씩, 숫자와 친해지는 시간 <span>✳</span></footer>
+<dialog id="modal"><div id="modal-content"></div></dialog><script type="module" src="./app.js"></script></body></html>

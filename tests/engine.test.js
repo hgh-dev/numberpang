@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {Game,matches,adjacent,gravity,findPair,createBoard} from '../engine.js';
+function board(a,b){const grid=Array(100).fill(null);grid[0]=a;grid[1]=b;return grid;}
+for(const [op,target,a,b,expected] of [['+',10,4,6,true],['+',0,0,0,true],['-',-5,2,7,true],['-',-5,7,2,false],['-',0,8,8,true]])test(`${a} ${op} ${b}, 목표 ${target}`,()=>assert.equal(matches(board(a,b),0,1,op,target),expected));
+test('대각선, 행 경계, 빈칸 차단',()=>{assert.equal(adjacent(0,11),false);assert.equal(adjacent(9,10),false);assert.equal(matches(board(0,null),0,1,'+',0),false);assert.equal(adjacent(0,10),true);});
+test('중력: 순서와 숫자 수 유지',()=>{const b=Array(100).fill(null);[3,7,null,null,2].forEach((n,i)=>b[(i+5)*10]=n);const {board:n,moves}=gravity(b);assert.deepEqual([n[70],n[80],n[90]],[3,7,2]);assert.equal(n.filter(x=>x!=null).length,3);assert.equal(n[60],null);assert.equal(moves.length,2);});
+test('모든 목표 및 극단 난수에서도 정답 보장',()=>{for(const op of ['+','-'])for(let t=op==='+'?0:-9;t<=(op==='+'?18:9);t++)for(const random of [()=>0,()=>.999,Math.random])for(let i=0;i<20;i++){const b=createBoard(op,t,random);assert.ok(findPair(b,op,t));assert.equal(b.length,100);assert.ok(b.every(n=>n>=0&&n<=9));}});
+test('음수 정답 탐색은 역순도 검사',()=>{const b=board(7,2);assert.deepEqual(findPair(b,'-',-5),[1,0]);});
+test('정답 +2초, 콤보 점수 및 500점 상한',()=>{const g=new Game('+',10);for(let n=1;n<=12;n++){g.board=board(4,6);const old=g.remaining;assert.equal(g.attempt(0,1).points,Math.min(500,100+(n-1)*50));assert.equal(g.remaining,old+2000);g.tick(100);}assert.equal(g.maxCombo,12);assert.equal(g.correct,12);});
+test('5초 경계, 초과, 오답 시 콤보 초기화',()=>{const g=new Game('+',10);g.board=board(4,6);g.attempt(0,1);g.tick(5000);g.board=board(4,6);assert.equal(g.attempt(0,1).points,150);g.tick(5001);assert.equal(g.combo,0);g.board=board(4,6);assert.equal(g.attempt(0,1).points,100);g.board=board(1,2);const before=[g.score,g.remaining];g.attempt(0,1);assert.equal(g.combo,0);assert.deepEqual([g.score,g.remaining],before);});
+test('중복 정답 지급, 시간 종료 후 입력 차단',()=>{const g=new Game('+',10);g.board=board(4,6);g.attempt(0,1);assert.equal(g.attempt(0,1).valid,false);assert.equal(g.score,100);g.tick(100000);assert.equal(g.remaining,0);assert.equal(g.ended,true);g.board=board(4,6);assert.equal(g.attempt(0,1).valid,false);});
+test('자동 새로고침은 목표/연산/점수/시간 유지',()=>{const g=new Game('-',-5);g.board=board(2,7);g.attempt(0,1);g.settle();const before=[g.op,g.target,g.score,g.remaining];assert.equal(g.refreshIfNeeded(),true);assert.ok(findPair(g.board,g.op,g.target));assert.deepEqual([g.op,g.target,g.score,g.remaining],before);assert.equal(g.refreshIfNeeded(),false);g.board=Array(100).fill(9);assert.equal(g.refreshIfNeeded(),true);});
+test('새 게임의 상태 초기화',()=>{const g=new Game('+',10);assert.deepEqual([g.remaining,g.score,g.combo,g.correct,g.maxCombo,g.ended],[60000,0,0,0,0,false]);});
