@@ -1,4 +1,12 @@
 export const SIZE = 10;
+export function chooseGameSettings(opChoice,targetChoice,random=Math.random) {
+  if(!['+','-','random'].includes(opChoice))throw new RangeError('연산을 확인해 주세요.');
+  if(targetChoice!=='random'&&(!Number.isInteger(targetChoice)||targetChoice<(opChoice==='-'?-9:0)||targetChoice>(opChoice==='+'?18:9)))throw new RangeError('목표 숫자 범위를 확인해 주세요.');
+  const op=opChoice==='random'?(random()<.5?'+':'-'):opChoice;
+  const [min,max]=op==='+'?[0,18]:[-9,9];
+  const target=targetChoice==='random'?min+Math.floor(random()*(max-min+1)):targetChoice;
+  return {op,target};
+}
 export function adjacent(a,b) { return Number.isInteger(a)&&Number.isInteger(b)&&a>=0&&b>=0&&a<100&&b<100&&Math.abs(a%10-b%10)+Math.abs(Math.floor(a/10)-Math.floor(b/10))===1; }
 export function matches(board,a,b,op,target) { return adjacent(a,b)&&board[a]!=null&&board[b]!=null&&(op==='+'?board[a]+board[b]:board[a]-board[b])===target; }
 export function findPair(board,op,target) {

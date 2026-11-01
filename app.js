@@ -1,6 +1,6 @@
-import {Game,adjacent,findMatchingTiles} from './engine.js';
+import {Game,adjacent,findMatchingTiles,chooseGameSettings} from './engine.js';
 const $=s=>document.querySelector(s);
-let mode='manual',op='+',game=null,paused=false,phase='setup',busy=false,selected=null,pointer=null,serial=0,lastFrame=performance.now(),audio=null,installPrompt=null,resultChoiceMade=false;
+let mode='manual',op='+',randomTarget=false,game=null,paused=false,phase='setup',busy=false,selected=null,pointer=null,serial=0,lastFrame=performance.now(),audio=null,installPrompt=null,resultChoiceMade=false;
 const storage={get(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback;}catch{return fallback;}},set(key,value){try{localStorage.setItem(key,JSON.stringify(value));}catch{/* 저장이 차단되어도 게임은 계속됩니다. */}}};
 let prefs=storage.get('np-prefs',{sound:true,reduce:matchMedia('(prefers-reduced-motion: reduce)').matches});
 let history=storage.get('np-time-records',[]);if(!Array.isArray(history))history=[];
@@ -11,10 +11,12 @@ function updateBest(){const fastest=history.filter(r=>Number.isFinite(r.elapsed)
 applyPrefs();updateBest();
 $('#sound').onclick=()=>{prefs.sound=!prefs.sound;applyPrefs();if(prefs.sound)sound();};$('#reduce').onchange=e=>{prefs.reduce=e.target.checked;applyPrefs();};
 for(const button of document.querySelectorAll('[data-mode]'))button.onclick=()=>{mode=button.dataset.mode;document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b===button));$('#manual').hidden=mode==='random';$('#random-info').hidden=mode!=='random';};
-function bounds(){return op==='+'?[0,18]:[-9,9];}
-for(const button of document.querySelectorAll('[data-op]'))button.onclick=()=>{op=button.dataset.op;document.querySelectorAll('[data-op]').forEach(b=>b.classList.toggle('active',b===button));const [min,max]=bounds();$('#target').min=min;$('#target').max=max;$('#target').value=Math.min(max,Math.max(min,Number($('#target').value)));$('#range').textContent=`${min}부터 ${max}까지 고를 수 있어요`;$('#target').inputMode=op==='+'?'numeric':'text';};
+function bounds(){return op==='+'?[0,18]:op==='-'?[-9,9]:[0,9];}
+function updateSetupChoices(){const [min,max]=bounds();document.querySelectorAll('[data-op]').forEach(button=>{const active=button.dataset.op===op;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));});$('#target-random').classList.toggle('active',randomTarget);$('#target-random').setAttribute('aria-pressed',String(randomTarget));$('#target-controls').hidden=randomTarget;$('#target-random-info').hidden=!randomTarget;$('#target').min=min;$('#target').max=max;if($('#target').value.trim()!=='')$('#target').value=Math.min(max,Math.max(min,Number($('#target').value)));$('#range').textContent=randomTarget?'선택한 부호에 맞는 숫자를 골라요':`${min}부터 ${max}까지 고를 수 있어요`;$('#target').inputMode=op==='-'?'text':'numeric';}
+for(const button of document.querySelectorAll('[data-op]'))button.onclick=()=>{op=button.dataset.op;updateSetupChoices();};
+$('#target-random').onclick=()=>{randomTarget=!randomTarget;updateSetupChoices();};
 for(const [id,delta] of [['minus',-1],['plus',1]])$('#'+id).onclick=()=>{const [min,max]=bounds();$('#target').value=Math.min(max,Math.max(min,Number($('#target').value)+delta));};
-$('#start').onclick=()=>{let target=Number($('#target').value),chosenOp=op;if(mode==='random'){chosenOp=Math.random()<.5?'+':'-';target=chosenOp==='+'?Math.floor(Math.random()*19):Math.floor(Math.random()*19)-9;}else{const [min,max]=bounds();if($('#target').value.trim()===''||!Number.isInteger(target)||target<min||target>max){$('#validation').textContent=`${min}부터 ${max}까지의 정수를 골라줘!`;return;}}$('#validation').textContent='';sound();start(chosenOp,target,mode);};
+$('#start').onclick=()=>{let choice;try{if(mode==='random')choice=chooseGameSettings('random','random');else{if(!randomTarget&&$('#target').value.trim()==='')throw new RangeError();choice=chooseGameSettings(op,randomTarget?'random':Number($('#target').value));}}catch{const [min,max]=bounds();$('#validation').textContent=`${min}부터 ${max}까지의 정수를 골라줘!`;return;}$('#validation').textContent='';sound();start(choice.op,choice.target,mode);};
 function modal(html){$('#modal-content').innerHTML=html;if(!$('#modal').open)$('#modal').showModal();document.dispatchEvent(new Event('numberpang-modal-open'));}
 function closeModal(){if($('#modal').open)$('#modal').close();}
 // 세대 번호로 재시작 이전의 비동기 애니메이션이 새 게임에 영향을 주지 않게 합니다.

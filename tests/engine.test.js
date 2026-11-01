@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Game,matches,adjacent,gravity,findPair,findMatchingTiles,createBoard,rearrangeRemaining} from '../engine.js';
+import {Game,matches,adjacent,gravity,findPair,findMatchingTiles,createBoard,rearrangeRemaining,chooseGameSettings} from '../engine.js';
 function board(a,b){const grid=Array(100).fill(null);grid[0]=a;grid[1]=b;return grid;}
+test('부호와 숫자를 각각 랜덤으로 선택',()=>{assert.deepEqual(chooseGameSettings('+','random',()=>.999),{op:'+',target:18});assert.deepEqual(chooseGameSettings('-','random',()=>0),{op:'-',target:-9});assert.deepEqual(chooseGameSettings('random',7,()=>0),{op:'+',target:7});assert.deepEqual(chooseGameSettings('random',7,()=>.999),{op:'-',target:7});const values=[.999,0];assert.deepEqual(chooseGameSettings('random','random',()=>values.shift()),{op:'-',target:-9});});
+test('랜덤 부호와 고정 숫자는 공통 범위만 허용',()=>{assert.deepEqual(chooseGameSettings('random',0,()=>.999),{op:'-',target:0});assert.deepEqual(chooseGameSettings('random',9,()=>0),{op:'+',target:9});assert.throws(()=>chooseGameSettings('random',10),RangeError);assert.throws(()=>chooseGameSettings('random',-1),RangeError);assert.throws(()=>chooseGameSettings('-',10),RangeError);});
 for(const [op,target,a,b,expected] of [['+',10,4,6,true],['+',0,0,0,true],['-',-5,2,7,true],['-',-5,7,2,false],['-',0,8,8,true]])test(`${a} ${op} ${b}, 목표 ${target}`,()=>assert.equal(matches(board(a,b),0,1,op,target),expected));
 test('대각선, 행 경계, 빈칸 차단',()=>{assert.equal(adjacent(0,11),false);assert.equal(adjacent(9,10),false);assert.equal(matches(board(0,null),0,1,'+',0),false);assert.equal(adjacent(0,10),true);});
 test('중력: 순서와 숫자 수 유지',()=>{const b=Array(100).fill(null);[3,7,null,null,2].forEach((n,i)=>b[(i+5)*10]=n);const {board:n,moves}=gravity(b);assert.deepEqual([n[70],n[80],n[90]],[3,7,2]);assert.equal(n.filter(x=>x!=null).length,3);assert.equal(n[60],null);assert.equal(moves.length,2);});
