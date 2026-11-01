@@ -15,7 +15,7 @@ function bounds(){return op==='+'?[0,18]:[-9,9];}
 for(const button of document.querySelectorAll('[data-op]'))button.onclick=()=>{op=button.dataset.op;document.querySelectorAll('[data-op]').forEach(b=>b.classList.toggle('active',b===button));const [min,max]=bounds();$('#target').min=min;$('#target').max=max;$('#target').value=Math.min(max,Math.max(min,Number($('#target').value)));$('#range').textContent=`${min}부터 ${max}까지 고를 수 있어요`;$('#target').inputMode=op==='+'?'numeric':'text';};
 for(const [id,delta] of [['minus',-1],['plus',1]])$('#'+id).onclick=()=>{const [min,max]=bounds();$('#target').value=Math.min(max,Math.max(min,Number($('#target').value)+delta));};
 $('#start').onclick=()=>{let target=Number($('#target').value),chosenOp=op;if(mode==='random'){chosenOp=Math.random()<.5?'+':'-';target=chosenOp==='+'?Math.floor(Math.random()*19):Math.floor(Math.random()*19)-9;}else{const [min,max]=bounds();if($('#target').value.trim()===''||!Number.isInteger(target)||target<min||target>max){$('#validation').textContent=`${min}부터 ${max}까지의 정수를 골라줘!`;return;}}$('#validation').textContent='';sound();start(chosenOp,target,mode);};
-function modal(html){$('#modal-content').innerHTML=html;if(!$('#modal').open)$('#modal').showModal();}
+function modal(html){$('#modal-content').innerHTML=html;if(!$('#modal').open)$('#modal').showModal();document.dispatchEvent(new Event('numberpang-modal-open'));}
 function closeModal(){if($('#modal').open)$('#modal').close();}
 // 세대 번호로 재시작 이전의 비동기 애니메이션이 새 게임에 영향을 주지 않게 합니다.
 async function wait(ms,token){let prev=performance.now(),left=ms;while(left>0){await new Promise(resolve=>setTimeout(resolve,16));if(token!==serial)return false;const now=performance.now();if(!paused)left-=now-prev;prev=now;}return token===serial;}
@@ -68,26 +68,61 @@ function restoreAfterUpdate(){
   $('#goal').textContent=game.target;$('#operation-word').textContent=game.op==='+'?'더해서':'빼서';
   $('#order-help').textContent=game.op==='+'?'옆에 있는 숫자 두 개를 골라봐':'먼저 고른 숫자 − 다음 숫자, 순서가 중요해!';
   $('#board-message').hidden=true;render();hud();lastFrame=performance.now();
-  if(saved.phase==='ended'||game.ended){phase='playing';finish();if(saved.resultChoiceMade)showResult();}
+  if(saved.phase==='ended'||game.ended){phase='playing';finish();if(saved.resultChoiceMade)showResult();else if(saved.pendingName!=null){askName();$('#player-name').value=saved.pendingName;}}
   else{phase='playing';pause();}
 }
 restoreAfterUpdate();
 
 if('serviceWorker' in navigator){
-  let registration,refreshing=false,checking=false;
-  const checkUpdate=async()=>{if(!registration||checking)return;checking=true;try{await registration.update();}catch{}finally{checking=false;}};
+  let registration,refreshing=false,checking=false,applying=false;
+  const showWaiting=()=>{
+    const waiting=Boolean(registration?.waiting&&navigator.serviceWorker.controller);
+    $('#update-banner').hidden=!waiting;
+    $('#modal-update')?.remove();
+    if(waiting&&$('#modal').open){
+      const button=document.createElement('button');button.id='modal-update';button.className='secondary';button.textContent='새 버전 저장 후 업데이트';
+      button.onclick=()=>$('#update-action').click();$('#modal-content').append(button);
+    }
+  };
+  const checkUpdate=async()=>{if(!registration||checking)return;checking=true;try{await registration.update();showWaiting();}catch{}finally{checking=false;}};
+  const saveUpdateState=()=>{
+    if(!game||!['playing','countdown','ended'].includes(phase))return true;
+    syncTime();
+    try{sessionStorage.setItem(UPDATE_STATE,JSON.stringify({phase,game,resultChoiceMade,pendingName:$('#player-name')?.value??null}));return true;}
+    catch{return false;}
+  };
   navigator.serviceWorker.addEventListener('message',event=>{
     if(event.data?.type!=='numberpang-update')return;
     if(refreshing)return;
     refreshing=true;
-    if(game&&['playing','countdown','ended'].includes(phase)){
-      syncTime();
-      try{sessionStorage.setItem(UPDATE_STATE,JSON.stringify({phase,game,resultChoiceMade}));}catch{}
-    }
+    saveUpdateState();
     event.ports[0]?.postMessage('ready');
     location.reload();
   });
-  navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(async registered=>{registration=registered;await checkUpdate();}).catch(()=>{});
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(applying&&!refreshing){refreshing=true;location.reload();}});
+  document.addEventListener('numberpang-modal-open',showWaiting);
+  $('#update-action').onclick=()=>{
+    const waiting=registration?.waiting;
+    if(!waiting||applying)return;
+    const wasPaused=paused,wasBusy=busy;
+    if(phase==='playing'){syncTime();paused=true;busy=true;pointer=null;clearSelection();}
+    if(!saveUpdateState()){
+      paused=wasPaused;busy=wasBusy;lastFrame=performance.now();
+      $('#update-status').textContent='게임 저장에 실패했습니다. 다시 눌러 주세요.';
+      return;
+    }
+    applying=true;$('#update-action').disabled=true;$('#update-action').textContent='적용 중…';
+    waiting.postMessage({type:'numberpang-apply-update'});
+    setTimeout(()=>{if(refreshing||!applying)return;applying=false;paused=wasPaused;busy=wasBusy;lastFrame=performance.now();try{sessionStorage.removeItem(UPDATE_STATE);}catch{}$('#update-status').textContent='업데이트 적용이 지연됩니다. 다시 시도해 주세요.';$('#update-action').disabled=false;$('#update-action').textContent='저장 후 업데이트';},8000);
+  };
+  navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(async registered=>{
+    registration=registered;showWaiting();
+    registration.addEventListener('updatefound',()=>{
+      const installing=registration.installing;
+      installing?.addEventListener('statechange',()=>{if(installing.state==='installed')showWaiting();});
+    });
+    await checkUpdate();
+  }).catch(()=>{});
   window.addEventListener('focus',checkUpdate);
   window.addEventListener('online',checkUpdate);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkUpdate();});

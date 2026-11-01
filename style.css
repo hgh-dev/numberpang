@@ -10,3 +10,6 @@
 #records{max-height:min(48vh,380px);overflow:auto;margin:18px 0}
 .name-input{width:100%;padding:14px;margin:6px 0 16px;border:1px solid #bdcbb9;border-radius:12px;background:#fff;font-size:17px}
 @media(max-width:720px){.stats{gap:8px}.hint-button{padding:8px;font-size:11px}.stats strong{font-size:22px}}
+.update-banner{position:fixed;left:50%;bottom:max(16px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:20;width:min(92vw,440px);display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid #b9cdb6;border-radius:14px;background:#fffef7;box-shadow:0 10px 35px #1c342840;font-size:13px;font-weight:700}
+.update-banner button{flex:none;padding:10px 12px;border-radius:10px;background:var(--green);color:white;font-size:12px;font-weight:800}
+.update-banner button:disabled{opacity:.55}

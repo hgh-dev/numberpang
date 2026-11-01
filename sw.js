@@ -1,18 +1,27 @@
 // 빌드할 때 파일 내용의 해시로 교체됩니다.
-const CACHE='numberpang-v2';
+const CACHE='numberpang-v3';
 const ASSETS=['./','./index.html','./style.css','./app.js','./engine.js','./manifest.webmanifest','./icons/icon.svg','./icons/icon-192.png','./icons/icon-512.png'];
+// 이전 자동 갱신 버전에서 이번 선택형 갱신으로 넘어올 때 한 번만 즉시 전환합니다.
+const LEGACY_AUTO_CACHES=['numberpang-090ea1dcecb2119d'];
 
 self.addEventListener('install',event=>event.waitUntil((async()=>{
   const cache=await caches.open(CACHE);
   // 브라우저 HTTP 캐시에 남은 옛 파일을 새 캐시에 다시 담지 않습니다.
   await cache.addAll(ASSETS.map(path=>new Request(path,{cache:'reload'})));
-  await self.skipWaiting();
+  const keys=await caches.keys();
+  if(keys.some(key=>LEGACY_AUTO_CACHES.includes(key)))await self.skipWaiting();
 })()));
+
+self.addEventListener('message',event=>{
+  if(event.data?.type==='numberpang-apply-update')event.waitUntil(self.skipWaiting());
+});
 
 self.addEventListener('activate',event=>event.waitUntil((async()=>{
   const keys=await caches.keys();
+  const migrating=keys.some(key=>LEGACY_AUTO_CACHES.includes(key));
   await Promise.all(keys.filter(key=>key.startsWith('numberpang-')&&key!==CACHE).map(key=>caches.delete(key)));
   await self.clients.claim();
+  if(!migrating)return;
   const pages=await self.clients.matchAll({type:'window',includeUncontrolled:true});
   await Promise.all(pages.map(async page=>{
     const channel=new MessageChannel();
