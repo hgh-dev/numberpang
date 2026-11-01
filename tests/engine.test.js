@@ -1,12 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Game,matches,adjacent,gravity,findPair,createBoard,rearrangeRemaining} from '../engine.js';
+import {Game,matches,adjacent,gravity,findPair,findMatchingTiles,createBoard,rearrangeRemaining} from '../engine.js';
 function board(a,b){const grid=Array(100).fill(null);grid[0]=a;grid[1]=b;return grid;}
 for(const [op,target,a,b,expected] of [['+',10,4,6,true],['+',0,0,0,true],['-',-5,2,7,true],['-',-5,7,2,false],['-',0,8,8,true]])test(`${a} ${op} ${b}, 목표 ${target}`,()=>assert.equal(matches(board(a,b),0,1,op,target),expected));
 test('대각선, 행 경계, 빈칸 차단',()=>{assert.equal(adjacent(0,11),false);assert.equal(adjacent(9,10),false);assert.equal(matches(board(0,null),0,1,'+',0),false);assert.equal(adjacent(0,10),true);});
 test('중력: 순서와 숫자 수 유지',()=>{const b=Array(100).fill(null);[3,7,null,null,2].forEach((n,i)=>b[(i+5)*10]=n);const {board:n,moves}=gravity(b);assert.deepEqual([n[70],n[80],n[90]],[3,7,2]);assert.equal(n.filter(x=>x!=null).length,3);assert.equal(n[60],null);assert.equal(moves.length,2);});
 test('모든 목표 및 극단 난수에서도 정답 보장',()=>{for(const op of ['+','-'])for(let t=op==='+'?0:-9;t<=(op==='+'?18:9);t++)for(const random of [()=>0,()=>.999,Math.random])for(let i=0;i<20;i++){const b=createBoard(op,t,random);assert.ok(findPair(b,op,t));assert.equal(b.length,100);assert.ok(b.every(n=>n>=0&&n<=9));}});
 test('음수 정답 탐색은 역순도 검사',()=>{const b=board(7,2);assert.deepEqual(findPair(b,'-',-5),[1,0]);});
+test('힌트는 남은 모든 정답 쌍의 블록을 찾음',()=>{const b=Array(100).fill(null);[b[0],b[1],b[20],b[21],b[40],b[41]]=[4,6,3,7,1,1];assert.deepEqual(findMatchingTiles(b,'+',10),[0,1,20,21]);});
+test('빼기 힌트는 역순 정답도 표시하고 오답은 제외함',()=>{const b=Array(100).fill(null);[b[0],b[1],b[20],b[21],b[40],b[41]]=[2,7,7,2,4,6];assert.deepEqual(findMatchingTiles(b,'-',-5),[0,1,20,21]);});
 test('정답 후에도 시간은 늘지 않고 콤보 점수 상한 유지',()=>{const g=new Game('+',10);for(let n=1;n<=12;n++){g.board=Array(100).fill(5);g.board[0]=4;g.board[1]=6;const old=g.elapsed;assert.equal(g.attempt(0,1).points,Math.min(500,100+(n-1)*50));assert.equal(g.elapsed,old);g.tick(100);}assert.equal(g.maxCombo,12);assert.equal(g.correct,12);});
 test('5초 경계, 초과, 오답 시 콤보 초기화',()=>{const g=new Game('+',10);g.board=Array(100).fill(5);g.board[0]=4;g.board[1]=6;g.attempt(0,1);g.tick(5000);g.board[0]=4;g.board[1]=6;assert.equal(g.attempt(0,1).points,150);g.tick(5001);assert.equal(g.combo,0);g.board[0]=4;g.board[1]=6;assert.equal(g.attempt(0,1).points,100);g.board[0]=1;g.board[1]=2;const before=[g.score,g.elapsed];g.attempt(0,1);assert.equal(g.combo,0);assert.deepEqual([g.score,g.elapsed],before);});
 test('시간 제한 없이 누적하고 마지막 쌍 제거 시 종료',()=>{const g=new Game('+',10);g.tick(100000);assert.equal(g.elapsed,100000);assert.equal(g.ended,false);g.board=board(4,6);g.attempt(0,1);assert.equal(g.ended,true);g.tick(1000);assert.equal(g.elapsed,100000);assert.equal(g.attempt(0,1).valid,false);});

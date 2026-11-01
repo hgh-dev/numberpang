@@ -5,6 +5,13 @@ export function findPair(board,op,target) {
   for(let a=0;a<100;a++) for(const b of [a-10,a+10,a-1,a+1]) if(matches(board,a,b,op,target)) return [a,b];
   return null;
 }
+export function findMatchingTiles(board,op,target) {
+  const tiles=new Set();
+  for(let a=0;a<100;a++) for(const b of [a+1,a+10]) {
+    if(matches(board,a,b,op,target)||matches(board,b,a,op,target)){tiles.add(a);tiles.add(b);}
+  }
+  return [...tiles];
+}
 export function createBoard(op,target,random=Math.random) {
   const board=Array.from({length:100},()=>Math.floor(random()*10));
   if(!findPair(board,op,target)) {
