@@ -1,6 +1,6 @@
 import {Game,adjacent,findPair} from './engine.js';
 const $=s=>document.querySelector(s);
-let mode='manual',op='+',game=null,paused=false,phase='setup',busy=false,selected=null,pointer=null,serial=0,lastFrame=performance.now(),audio=null,installPrompt=null;
+let mode='manual',op='+',game=null,paused=false,phase='setup',busy=false,selected=null,pointer=null,serial=0,lastFrame=performance.now(),audio=null,installPrompt=null,resultChoiceMade=false;
 const storage={get(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback;}catch{return fallback;}},set(key,value){try{localStorage.setItem(key,JSON.stringify(value));}catch{/* 저장이 차단되어도 게임은 계속됩니다. */}}};
 let prefs=storage.get('np-prefs',{sound:true,reduce:matchMedia('(prefers-reduced-motion: reduce)').matches});
 let history=storage.get('np-time-records',[]);if(!Array.isArray(history))history=[];
@@ -19,7 +19,7 @@ function modal(html){$('#modal-content').innerHTML=html;if(!$('#modal').open)$('
 function closeModal(){if($('#modal').open)$('#modal').close();}
 // 세대 번호로 재시작 이전의 비동기 애니메이션이 새 게임에 영향을 주지 않게 합니다.
 async function wait(ms,token){let prev=performance.now(),left=ms;while(left>0){await new Promise(resolve=>setTimeout(resolve,16));if(token!==serial)return false;const now=performance.now();if(!paused)left-=now-prev;prev=now;}return token===serial;}
-async function start(chosenOp,target,chosenMode){const token=++serial;game=new Game(chosenOp,target,chosenMode);paused=false;phase='countdown';busy=true;selected=null;pointer=null;closeModal();$('#setup').hidden=true;$('#play').hidden=false;document.body.classList.add('play-active');$('#goal').textContent=target;$('#operation-word').textContent=chosenOp==='+'?'더해서':'빼서';$('#order-help').textContent=chosenOp==='+'?'옆에 있는 숫자 두 개를 골라봐':'먼저 고른 숫자 − 다음 숫자, 순서가 중요해!';$('#equation').textContent='준비됐지?';$('#reward').textContent='';render();hud();$('#board-message').hidden=false;for(const n of ['3','2','1']){$('#board-message').innerHTML=`<span class="countdown">${n}</span>`;if(!await wait(1000,token))return;}$('#board-message').hidden=true;phase='playing';busy=false;lastFrame=performance.now();}
+async function start(chosenOp,target,chosenMode){const token=++serial;game=new Game(chosenOp,target,chosenMode);resultChoiceMade=false;paused=false;phase='countdown';busy=true;selected=null;pointer=null;closeModal();$('#setup').hidden=true;$('#play').hidden=false;document.body.classList.add('play-active');$('#goal').textContent=target;$('#operation-word').textContent=chosenOp==='+'?'더해서':'빼서';$('#order-help').textContent=chosenOp==='+'?'옆에 있는 숫자 두 개를 골라봐':'먼저 고른 숫자 − 다음 숫자, 순서가 중요해!';$('#equation').textContent='준비됐지?';$('#reward').textContent='';render();hud();$('#board-message').hidden=false;for(const n of ['3','2','1']){$('#board-message').innerHTML=`<span class="countdown">${n}</span>`;if(!await wait(1000,token))return;}$('#board-message').hidden=true;phase='playing';busy=false;lastFrame=performance.now();}
 function render(){const frag=document.createDocumentFragment();game.board.forEach((number,i)=>{const b=document.createElement('button');b.className='tile'+(number==null?' empty':'');b.dataset.index=i;b.dataset.color=number==null?'':String(number%5);b.textContent=number??'';b.disabled=number==null;b.setAttribute('aria-label',number==null?`${Math.floor(i/10)+1}행 ${i%10+1}열 빈칸`:`${Math.floor(i/10)+1}행 ${i%10+1}열 숫자 ${number}`);frag.append(b);});$('#board').replaceChildren(frag);clearSelection();}
 function hud() {if(!game)return;$('#time').textContent=formatTime(game.elapsed);$('#score').textContent=game.score.toLocaleString('ko-KR');$('#combo').textContent=game.combo>=2?`${game.combo} COMBO! ✦`:'차근차근, 하나씩!';}
 function tick(now){const dt=now-lastFrame;lastFrame=now;if(phase==='playing'&&!paused){game.tick(dt);hud();}requestAnimationFrame(tick);}requestAnimationFrame(tick);
@@ -49,9 +49,47 @@ function home(){serial++;phase='setup';paused=false;busy=false;pointer=null;clos
 function finish(){if(phase==='ended')return;phase='ended';serial++;busy=true;pointer=null;clearSelection();modal(`<div class="confetti">✦ ♕ ✦</div><h2>모든 블록을 없앴어!</h2><p>걸린 시간 <strong>${formatTime(game.elapsed)}</strong><br>기록으로 남기겠습니까?</p><button class="primary" id="save-yes">예, 기록할래요</button><button class="secondary" id="save-no">아니요</button>`);$('#save-yes').onclick=askName;$('#save-no').onclick=showResult;}
 function askName(){modal(`<h2>이름을 적어 주세요</h2><p>순위에 표시할 이름이에요.</p><form id="name-form"><input id="player-name" class="name-input" type="text" maxlength="20" required placeholder="이름" autocomplete="nickname"><button class="primary" type="submit">기록 저장</button></form><button class="secondary" id="save-back">돌아가기</button>`);$('#player-name').focus();$('#save-back').onclick=finishPrompt;$('#name-form').onsubmit=e=>{e.preventDefault();const name=$('#player-name').value.trim();if(!name){$('#player-name').focus();return;}history.push({name,date:Date.now(),op:game.op,target:game.target,mode:game.mode,elapsed:Math.round(game.elapsed),score:game.score});history.sort((a,b)=>a.elapsed-b.elapsed||a.date-b.date);storage.set('np-time-records',history);showResult();};}
 function finishPrompt(){modal(`<h2>기록으로 남기겠습니까?</h2><p>걸린 시간 ${formatTime(game.elapsed)}</p><button class="primary" id="save-yes">예, 기록할래요</button><button class="secondary" id="save-no">아니요</button>`);$('#save-yes').onclick=askName;$('#save-no').onclick=showResult;}
-function showResult(){modal(`<div class="confetti">✦ ♕ ✦</div><h2>게임 완료!</h2><p>블록을 모두 없앴어요.</p><div class="big">${formatTime(game.elapsed)}</div><div class="result-grid"><div>걸린 시간<b>${formatTime(game.elapsed)}</b></div><div>점수<b>${game.score.toLocaleString('ko-KR')}점</b></div><div>정답 횟수<b>${game.correct}번</b></div><div>최대 콤보<b>${game.maxCombo}</b></div></div><button class="primary" id="again">한 번 더 놀자 →</button><button class="secondary" id="show-records">기록 보기</button><button class="secondary" id="home">설정으로 돌아가기</button>`);$('#again').onclick=()=>start(game.op,game.target,game.mode);$('#show-records').onclick=showRecords;$('#home').onclick=home;}
+function showResult(){resultChoiceMade=true;modal(`<div class="confetti">✦ ♕ ✦</div><h2>게임 완료!</h2><p>블록을 모두 없앴어요.</p><div class="big">${formatTime(game.elapsed)}</div><div class="result-grid"><div>걸린 시간<b>${formatTime(game.elapsed)}</b></div><div>점수<b>${game.score.toLocaleString('ko-KR')}점</b></div><div>정답 횟수<b>${game.correct}번</b></div><div>최대 콤보<b>${game.maxCombo}</b></div></div><button class="primary" id="again">한 번 더 놀자 →</button><button class="secondary" id="show-records">기록 보기</button><button class="secondary" id="home">설정으로 돌아가기</button>`);$('#again').onclick=()=>start(game.op,game.target,game.mode);$('#show-records').onclick=showRecords;$('#home').onclick=home;}
 function showRecords(){modal('<h2>완료 시간 순위</h2><p>빠른 시간 순 · 이 기기에 저장돼요</p><div id="records"></div><button class="secondary" id="close-records">닫기</button>');const list=$('#records');if(!history.length)list.textContent='아직 저장된 기록이 없어요.';history.forEach((r,index)=>{const row=document.createElement('div');row.className='record-row';const info=document.createElement('span'),time=document.createElement('b'),name=document.createElement('strong'),detail=document.createElement('small');name.textContent=`${index+1}위 · ${r.name}`;detail.textContent=`${new Date(r.date).toLocaleString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})} · ${r.op==='+'?'더하기':'빼기'} ${r.target}`;time.textContent=formatTime(r.elapsed);info.append(name,detail);row.append(info,time);list.append(row);});$('#close-records').onclick=()=>{if(phase==='ended')showResult();else closeModal();};}
 $('#records-button').onclick=showRecords;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;$('#install').hidden=false;});$('#install').onclick=async()=>{if(installPrompt){await installPrompt.prompt();installPrompt=null;$('#install').hidden=true;}};window.addEventListener('appinstalled',()=>{$('#install').hidden=true;});
-// 새 버전은 다음 접속 때 활성화하여 진행 중인 게임을 중단하지 않습니다.
-if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+const UPDATE_STATE='np-update-state';
+function restoreAfterUpdate(){
+  let saved;
+  try{saved=JSON.parse(sessionStorage.getItem(UPDATE_STATE));sessionStorage.removeItem(UPDATE_STATE);}catch{return;}
+  if(!saved?.game)return;
+  const state=saved.game;
+  if(!['+','-'].includes(state.op)||!Number.isInteger(state.target)||!Array.isArray(state.board)||state.board.length!==100)return;
+  if(saved.phase==='countdown'){start(state.op,state.target,state.mode);return;}
+  if(!['playing','ended'].includes(saved.phase))return;
+  game=Object.assign(new Game(state.op,state.target,state.mode),state);
+  if(!game.ended){game.settle();game.refreshIfNeeded();}
+  $('#setup').hidden=true;$('#play').hidden=false;document.body.classList.add('play-active');
+  $('#goal').textContent=game.target;$('#operation-word').textContent=game.op==='+'?'더해서':'빼서';
+  $('#order-help').textContent=game.op==='+'?'옆에 있는 숫자 두 개를 골라봐':'먼저 고른 숫자 − 다음 숫자, 순서가 중요해!';
+  $('#board-message').hidden=true;render();hud();lastFrame=performance.now();
+  if(saved.phase==='ended'||game.ended){phase='playing';finish();if(saved.resultChoiceMade)showResult();}
+  else{phase='playing';pause();}
+}
+restoreAfterUpdate();
+
+if('serviceWorker' in navigator){
+  let registration,refreshing=false,checking=false;
+  const checkUpdate=async()=>{if(!registration||checking)return;checking=true;try{await registration.update();}catch{}finally{checking=false;}};
+  navigator.serviceWorker.addEventListener('message',event=>{
+    if(event.data?.type!=='numberpang-update')return;
+    if(refreshing)return;
+    refreshing=true;
+    if(game&&['playing','countdown','ended'].includes(phase)){
+      syncTime();
+      try{sessionStorage.setItem(UPDATE_STATE,JSON.stringify({phase,game,resultChoiceMade}));}catch{}
+    }
+    event.ports[0]?.postMessage('ready');
+    location.reload();
+  });
+  navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(async registered=>{registration=registered;await checkUpdate();}).catch(()=>{});
+  window.addEventListener('focus',checkUpdate);
+  window.addEventListener('online',checkUpdate);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkUpdate();});
+  setInterval(()=>{if(!document.hidden)checkUpdate();},10000);
+}
