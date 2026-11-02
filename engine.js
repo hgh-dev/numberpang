@@ -59,17 +59,17 @@ export function gravity(board) {
   return {board:next,moves};
 }
 export class Game {
-  constructor(op,target,mode='manual') {this.op=op;this.target=target;this.mode=mode;this.board=createBoard(op,target);this.elapsed=0;this.score=0;this.combo=0;this.maxCombo=0;this.correct=0;this.hintsUsed=0;this.lastCorrect=-Infinity;this.ended=false;}
-  tick(ms) {if(this.ended)return;this.elapsed+=Math.max(0,ms);if(this.elapsed-this.lastCorrect>5000)this.combo=0;}
+  constructor(op,target,mode='manual') {this.op=op;this.target=target;this.mode=mode;this.board=createBoard(op,target);this.elapsed=0;this.score=0;this.combo=0;this.maxCombo=0;this.correct=0;this.hintsUsed=0;this.lastCorrect=-Infinity;this.ended=false;this.completedAt=null;}
+  tick(ms,active=true) {if(this.ended||!active)return;this.elapsed+=Math.max(0,ms);if(this.elapsed-this.lastCorrect>5000)this.combo=0;}
   useHint() {if(this.ended||this.hintsUsed>=3)return [];const tiles=findMatchingTiles(this.board,this.op,this.target);if(tiles.length)this.hintsUsed++;return tiles;}
-  attempt(a,b) {
+  attempt(a,b,completedAt=Date.now()) {
     if(this.ended||!adjacent(a,b)||this.board[a]==null||this.board[b]==null)return {valid:false};
     if(!matches(this.board,a,b,this.op,this.target)){this.combo=0;return {valid:true,correct:false};}
     this.combo=this.elapsed-this.lastCorrect<=5000?this.combo+1:1;
     this.lastCorrect=this.elapsed;this.maxCombo=Math.max(this.maxCombo,this.combo);this.correct++;
     const points=Math.min(500,100+(this.combo-1)*50);this.score+=points;
     this.board[a]=null;this.board[b]=null;
-    if(this.board.every(n=>n==null))this.ended=true;
+    if(this.board.every(n=>n==null)){this.ended=true;this.completedAt=completedAt;}
     return {valid:true,correct:true,points};
   }
   settle() {const result=gravity(this.board);this.board=result.board;return result.moves;}

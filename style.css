@@ -2,6 +2,8 @@
 /* 완료 시간과 기록 순위를 작은 화면에서도 읽기 쉽게 표시합니다. */
 .hint-button{flex:none;padding:10px 12px;border-radius:12px;background:#f5e4a9;color:#71591e;font-size:13px;font-weight:800}
 .hint-button:disabled{opacity:.55}
+#save-warning{margin:8px 0;text-align:center;color:#a34336;font-size:12px;font-weight:700}
+#save-error{color:#a34336;font-weight:700}
 .tile.hint{outline:3px solid #e5a829;outline-offset:1px;background:#ffe69a;box-shadow:0 0 0 5px #e5a82955;z-index:4}
 .record-row{align-items:center;gap:12px;text-align:left}
 .record-row span{min-width:0;display:flex;flex-direction:column;gap:4px}
