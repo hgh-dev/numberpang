@@ -36,15 +36,17 @@ export function createBoard(op,target,random=Math.random) {
 export function rearrangeRemaining(board,op,target,random=Math.random) {
   const count=board.filter(n=>n!=null).length;
   if(count===0||count%2) throw new RangeError('남은 블록은 짝수여야 합니다.');
-  const pairs=[];
-  for(let a=0;a<=9;a++) for(let b=0;b<=9;b++) if((op==='+'?a+b:a-b)===target) pairs.push([a,b]);
-  if(!pairs.length) throw new RangeError('목표 숫자 범위를 확인해 주세요.');
   const next=Array(100).fill(null);
-  const firstRow=10-Math.ceil(count/10);
-  let placed=0;
-  for(let row=firstRow;row<10;row++) for(let col=0;col<10&&placed<count;col+=2) {
+  const slots=[];
+  for(let row=9;row>=0&&slots.length<count;row--) for(let col=0;col<10&&slots.length<count;col++) {
+    const index=row*10+col;slots.push(index);next[index]=Math.floor(random()*10);
+  }
+  if(!findPair(next,op,target)) {
+    const pairs=[];
+    for(let a=0;a<=9;a++) for(let b=0;b<=9;b++) if((op==='+'?a+b:a-b)===target) pairs.push([a,b]);
+    if(!pairs.length) throw new RangeError('목표 숫자 범위를 확인해 주세요.');
     const [a,b]=pairs[Math.floor(random()*pairs.length)];
-    next[row*10+col]=a;next[row*10+col+1]=b;placed+=2;
+    next[slots[0]]=a;next[slots[1]]=b;
   }
   return next;
 }
@@ -57,8 +59,9 @@ export function gravity(board) {
   return {board:next,moves};
 }
 export class Game {
-  constructor(op,target,mode='manual') {this.op=op;this.target=target;this.mode=mode;this.board=createBoard(op,target);this.elapsed=0;this.score=0;this.combo=0;this.maxCombo=0;this.correct=0;this.lastCorrect=-Infinity;this.ended=false;}
+  constructor(op,target,mode='manual') {this.op=op;this.target=target;this.mode=mode;this.board=createBoard(op,target);this.elapsed=0;this.score=0;this.combo=0;this.maxCombo=0;this.correct=0;this.hintsUsed=0;this.lastCorrect=-Infinity;this.ended=false;}
   tick(ms) {if(this.ended)return;this.elapsed+=Math.max(0,ms);if(this.elapsed-this.lastCorrect>5000)this.combo=0;}
+  useHint() {if(this.ended||this.hintsUsed>=3)return [];const tiles=findMatchingTiles(this.board,this.op,this.target);if(tiles.length)this.hintsUsed++;return tiles;}
   attempt(a,b) {
     if(this.ended||!adjacent(a,b)||this.board[a]==null||this.board[b]==null)return {valid:false};
     if(!matches(this.board,a,b,this.op,this.target)){this.combo=0;return {valid:true,correct:false};}
