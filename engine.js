@@ -1,9 +1,9 @@
 export const SIZE = 10;
 export function chooseGameSettings(opChoice,targetChoice,random=Math.random) {
   if(!['+','-','random'].includes(opChoice))throw new RangeError('연산을 확인해 주세요.');
-  if(targetChoice!=='random'&&(!Number.isInteger(targetChoice)||targetChoice<(opChoice==='-'?-9:0)||targetChoice>(opChoice==='+'?18:9)))throw new RangeError('목표 숫자 범위를 확인해 주세요.');
+  if(targetChoice!=='random'&&(!Number.isInteger(targetChoice)||targetChoice<(opChoice==='-'?-10:0)||targetChoice>(opChoice==='+'?20:10)))throw new RangeError('목표 숫자 범위를 확인해 주세요.');
   const op=opChoice==='random'?(random()<.5?'+':'-'):opChoice;
-  const [min,max]=op==='+'?[0,18]:[-9,9];
+  const [min,max]=op==='+'?[0,20]:[-10,10];
   const target=targetChoice==='random'?min+Math.floor(random()*(max-min+1)):targetChoice;
   return {op,target};
 }
@@ -21,10 +21,10 @@ export function findMatchingTiles(board,op,target) {
   return [...tiles];
 }
 export function createBoard(op,target,random=Math.random) {
-  const board=Array.from({length:100},()=>Math.floor(random()*10));
+  const board=Array.from({length:100},()=>Math.floor(random()*11));
   if(!findPair(board,op,target)) {
     const pairs=[];
-    for(let a=0;a<=9;a++) for(let b=0;b<=9;b++) if((op==='+'?a+b:a-b)===target) pairs.push([a,b]);
+    for(let a=0;a<=10;a++) for(let b=0;b<=10;b++) if((op==='+'?a+b:a-b)===target) pairs.push([a,b]);
     if(!pairs.length) throw new RangeError('목표 숫자 범위를 확인해 주세요.');
     // 재시도 반복 대신 유효한 인접 쌍을 직접 심어 정답을 보장합니다.
     const pair=pairs[Math.floor(random()*pairs.length)];
@@ -39,11 +39,11 @@ export function rearrangeRemaining(board,op,target,random=Math.random) {
   const next=Array(100).fill(null);
   const slots=[];
   for(let row=9;row>=0&&slots.length<count;row--) for(let col=0;col<10&&slots.length<count;col++) {
-    const index=row*10+col;slots.push(index);next[index]=Math.floor(random()*10);
+    const index=row*10+col;slots.push(index);next[index]=Math.floor(random()*11);
   }
   if(!findPair(next,op,target)) {
     const pairs=[];
-    for(let a=0;a<=9;a++) for(let b=0;b<=9;b++) if((op==='+'?a+b:a-b)===target) pairs.push([a,b]);
+    for(let a=0;a<=10;a++) for(let b=0;b<=10;b++) if((op==='+'?a+b:a-b)===target) pairs.push([a,b]);
     if(!pairs.length) throw new RangeError('목표 숫자 범위를 확인해 주세요.');
     const [a,b]=pairs[Math.floor(random()*pairs.length)];
     next[slots[0]]=a;next[slots[1]]=b;

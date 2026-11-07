@@ -11,7 +11,7 @@ function updateBest(){const fastest=history.filter(r=>Number.isFinite(r.elapsed)
 applyPrefs();updateBest();
 $('#sound').onclick=()=>{prefs.sound=!prefs.sound;applyPrefs();if(prefs.sound)sound();};$('#reduce').onchange=e=>{prefs.reduce=e.target.checked;applyPrefs();};
 for(const button of document.querySelectorAll('[data-mode]'))button.onclick=()=>{mode=button.dataset.mode;document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b===button));$('#manual').hidden=mode==='random';$('#random-info').hidden=mode!=='random';};
-function bounds(){return op==='+'?[0,18]:op==='-'?[-9,9]:[0,9];}
+function bounds(){return op==='+'?[0,20]:op==='-'?[-10,10]:[0,10];}
 function updateSetupChoices(){const [min,max]=bounds(),randomOp=op==='random';document.querySelectorAll('[data-op]').forEach(button=>{const active=button.dataset.op===op;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));});$('#op-random').classList.toggle('active',randomOp);$('#op-random').setAttribute('aria-pressed',String(randomOp));$('#operations').hidden=randomOp;$('#op-random-info').hidden=!randomOp;$('#target-random').classList.toggle('active',randomTarget);$('#target-random').setAttribute('aria-pressed',String(randomTarget));$('#target-controls').hidden=randomTarget;$('#target-random-info').hidden=!randomTarget;$('#target').min=min;$('#target').max=max;if($('#target').value.trim()!=='')$('#target').value=Math.min(max,Math.max(min,Number($('#target').value)));$('#range').textContent=randomTarget?'선택한 부호에 맞는 숫자를 골라요':`${min}부터 ${max}까지 고를 수 있어요`;$('#target').inputMode=op==='-'?'text':'numeric';}
 for(const button of document.querySelectorAll('[data-op]'))button.onclick=()=>{fixedOp=button.dataset.op;op=fixedOp;updateSetupChoices();};
 $('#op-random').onclick=()=>{op=op==='random'?fixedOp:'random';updateSetupChoices();};
@@ -66,7 +66,7 @@ function restoreAfterUpdate(){
   saved??=storage.get(ACTIVE_STATE,null);
   if(!saved?.game)return;
   const state=saved.game;
-  if(!['+','-'].includes(state.op)||!Number.isInteger(state.target)||state.target<(state.op==='+'?0:-9)||state.target>(state.op==='+'?18:9)||!Array.isArray(state.board)||state.board.length!==100||!state.board.every(n=>n===null||Number.isInteger(n)&&n>=0&&n<=9)||!Number.isFinite(state.elapsed)||state.elapsed<0){storage.remove(ACTIVE_STATE);return;}
+  if(!['+','-'].includes(state.op)||!Number.isInteger(state.target)||state.target<(state.op==='+'?0:-10)||state.target>(state.op==='+'?20:10)||!Array.isArray(state.board)||state.board.length!==100||!state.board.every(n=>n===null||Number.isInteger(n)&&n>=0&&n<=10)||!Number.isFinite(state.elapsed)||state.elapsed<0){storage.remove(ACTIVE_STATE);return;}
   if(saved.phase==='countdown'){start(state.op,state.target,state.mode);return;}
   if(!['playing','ended'].includes(saved.phase))return;
   try{game=Object.assign(new Game(state.op,state.target,state.mode),state);if(game.lastCorrect===null)game.lastCorrect=-Infinity;if(!game.ended){game.settle();game.refreshIfNeeded();}}catch{storage.remove(ACTIVE_STATE);return;}

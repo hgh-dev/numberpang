@@ -36,3 +36,7 @@
 .choice-random{margin-bottom:11px;padding:8px 10px;border:1.5px solid #d5e1d2;border-radius:10px;background:#f4f7ee;color:#4f7253;font-size:12px;font-weight:800;white-space:nowrap}
 .choice-random.active{border-color:#68876b;background:#e3f0dd;color:var(--green)}
 .choice-random-info{padding:17px 10px;border:1px dashed #adc8a7;border-radius:13px;background:#f4f8ed;color:#4d7453;text-align:center;font-size:14px;font-weight:800}
+.tile[data-number='10']:not(.selected):not(.hint){background:#f4c9be;color:#813e30}
+@media(min-width:721px){.play-active .brand{height:64px}.play-active #site-footer{display:none}.play{width:min(100%,550px,max(200px,calc(100dvh - 255px)))}.play .game-heading h2{margin:4px 0}.play .game-heading p{margin:3px 0 8px}.play .stats{padding:7px 6px}.play .game-footer{min-height:35px;padding:8px 3px}}
+.play{width:min(100%,550px,max(180px,calc(100dvh - 330px)))}
+@media(max-height:550px) and (orientation:landscape){.play{width:min(60vw,max(180px,calc(100dvh - 190px)))}.play .game-heading h2{font-size:15px;white-space:nowrap;margin:2px 0}.game-heading strong{font-size:20px}.stats{gap:4px}.stats>div{min-width:0}.stats strong{font-size:15px}.hint-button{padding:6px 4px;font-size:10px}.stats .icon-button{width:32px;height:32px;flex:none}#board{grid-template-columns:repeat(10,minmax(0,1fr));gap:2px}.tile{min-width:0;font-size:clamp(10px,3vh,16px)}}
