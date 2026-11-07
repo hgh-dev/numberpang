@@ -36,17 +36,22 @@ export function createBoard(op,target,random=Math.random) {
 export function rearrangeRemaining(board,op,target,random=Math.random) {
   const count=board.filter(n=>n!=null).length;
   if(count===0||count%2) throw new RangeError('남은 블록은 짝수여야 합니다.');
-  const next=Array(100).fill(null);
-  const slots=[];
-  for(let row=9;row>=0&&slots.length<count;row--) for(let col=0;col<10&&slots.length<count;col++) {
-    const index=row*10+col;slots.push(index);next[index]=Math.floor(random()*11);
-  }
+  const next=board.map(n=>n==null?null:Math.floor(random()*11));
   if(!findPair(next,op,target)) {
+    const neighbors=[];
+    for(let a=0;a<100;a++)for(const b of [a+1,a+10])if(next[a]!=null&&next[b]!=null&&adjacent(a,b))neighbors.push([a,b]);
+    if(!neighbors.length){
+      // 인접한 블록이 전혀 없을 때만 위치를 모아 게임을 계속합니다.
+      const numbers=next.filter(n=>n!=null);next.fill(null);
+      for(let i=0;i<numbers.length;i++){const row=9-Math.floor(i/10),col=i%10;next[row*10+col]=numbers[i];}
+      neighbors.push([90,91]);
+    }
     const pairs=[];
     for(let a=0;a<=10;a++) for(let b=0;b<=10;b++) if((op==='+'?a+b:a-b)===target) pairs.push([a,b]);
     if(!pairs.length) throw new RangeError('목표 숫자 범위를 확인해 주세요.');
     const [a,b]=pairs[Math.floor(random()*pairs.length)];
-    next[slots[0]]=a;next[slots[1]]=b;
+    const [first,second]=neighbors[Math.floor(random()*neighbors.length)];
+    next[first]=a;next[second]=b;
   }
   return next;
 }
