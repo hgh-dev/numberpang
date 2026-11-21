@@ -60,10 +60,10 @@ export function gravity(board) {
   return {board:next,moves};
 }
 export class Game {
-  constructor(op,target,mode='manual') {this.op=op;this.target=target;this.mode=mode;this.board=createBoard(op,target);this.elapsed=0;this.score=0;this.combo=0;this.maxCombo=0;this.correct=0;this.hintsUsed=0;this.lastCorrect=-Infinity;this.ended=false;this.completedAt=null;}
+  constructor(op,target,mode='manual',options={}) {this.op=op;this.target=target;this.mode=mode;this.randomOp=options.randomOp??mode==='random';this.randomTarget=options.randomTarget??mode==='random';this.board=createBoard(op,target);this.elapsed=0;this.score=0;this.combo=0;this.maxCombo=0;this.correct=0;this.hintsUsed=0;this.lastCorrect=-Infinity;this.ended=false;this.completedAt=null;}
   tick(ms,active=true) {if(this.ended||!active)return;this.elapsed+=Math.max(0,ms);if(this.elapsed-this.lastCorrect>5000)this.combo=0;}
   useHint() {if(this.ended||this.hintsUsed>=3)return [];const pair=findPair(this.board,this.op,this.target);if(pair)this.hintsUsed++;return pair??[];}
-  attempt(a,b,completedAt=Date.now()) {
+  attempt(a,b,completedAt=Date.now(),random=Math.random) {
     if(this.ended||!selectable(this.board,a,b))return {valid:false};
     if(!matches(this.board,a,b,this.op,this.target)){this.combo=0;return {valid:true,correct:false};}
     this.combo=this.elapsed-this.lastCorrect<=5000?this.combo+1:1;
@@ -72,7 +72,15 @@ export class Game {
     const points=Math.min(500,100+(this.combo-1)*50)+adjacencyBonus;this.score+=points;
     this.board[a]=null;this.board[b]=null;
     if(this.board.every(n=>n==null)){this.ended=true;this.completedAt=completedAt;}
-    return {valid:true,correct:true,points,adjacencyBonus};
+    const questionChanged=this.advanceQuestion(random);
+    return {valid:true,correct:true,points,adjacencyBonus,questionChanged};
+  }
+  advanceQuestion(random=Math.random) {
+    if(this.ended||(!this.randomOp&&!this.randomTarget))return false;
+    const next=chooseGameSettings(this.randomOp?'random':this.op,this.randomTarget?'random':this.target,random);
+    const changed=next.op!==this.op||next.target!==this.target;
+    this.op=next.op;this.target=next.target;
+    return changed;
   }
   settle() {const result=gravity(this.board);this.board=result.board;return result.moves;}
   refreshIfNeeded() {if(this.ended||findPair(this.board,this.op,this.target))return false;this.board=rearrangeRemaining(this.board,this.op,this.target);return true;}

@@ -88,3 +88,55 @@ test('기존 기록도 총점을 계산해 정렬하고 동점은 빠른 시간�
   assert.equal([...records].sort((a,b)=>compareRecords(a,b,'time'))[0].name,'missing');
   assert.equal([...records].sort((a,b)=>compareRecords(a,b,'score'))[0].name,'best');
 });
+
+test('숫자 랜덤은 정답마다 목표를 다시 뽑고 부호는 고정',()=>{
+  const g=new Game('+',10,'manual',{randomTarget:true});
+  g.board=Array(100).fill(5);g.board[0]=4;g.board[1]=6;
+  const result=g.attempt(0,1,1000,()=>.999);
+  assert.equal(result.correct,true);assert.equal(result.questionChanged,true);
+  assert.equal(g.op,'+');assert.equal(g.target,20);
+  assert.equal(g.score,200);assert.equal(g.correct,1);
+});
+test('부호 랜덤은 정답마다 부호를 다시 뽑고 목표는 고정',()=>{
+  const g=new Game('+',5,'manual',{randomOp:true});
+  g.board=Array(100).fill(5);g.board[0]=2;g.board[1]=3;
+  g.attempt(0,1,1000,()=>.999);
+  assert.equal(g.op,'-');assert.equal(g.target,5);
+  g.board[0]=7;g.board[1]=2;g.attempt(0,1,1001,()=>0);
+  assert.equal(g.op,'+');assert.equal(g.target,5);
+});
+test('둘 다 랜덤이면 새 부호의 범위에서 목표를 추첨하며 오답과 힌트는 유지',()=>{
+  const g=new Game('+',10,'random');g.board=Array(100).fill(5);
+  const values=[.999,0];g.attempt(0,1,1000,()=>values.shift());
+  assert.equal(g.op,'-');assert.equal(g.target,-10);
+  g.board[0]=1;g.board[1]=2;
+  assert.equal(g.attempt(0,1,1001,()=>{throw Error('오답에서 추첨');}).correct,false);
+  g.useHint();assert.deepEqual([g.op,g.target],['-',-10]);
+});
+test('랜덤은 같은 값도 나올 수 있고 마지막 정답에서는 재추첨하지 않음',()=>{
+  const g=new Game('+',0,'manual',{randomTarget:true});
+  g.board=Array(100).fill(0);assert.equal(g.attempt(0,1,1,()=>0).questionChanged,false);
+  g.board=board(0,0);
+  const result=g.attempt(0,1,2,()=>{throw Error('완료 후 추첨');});
+  assert.equal(result.correct,true);assert.equal(g.ended,true);
+});
+test('랜덤 설정과 현재 문제는 저장 후 복원해도 유지',()=>{
+  const original=new Game('-',-10,'manual',{randomTarget:true});
+  const state=JSON.parse(JSON.stringify(original));
+  const restored=Object.assign(new Game(state.op,state.target,state.mode,state),state);
+  assert.deepEqual([restored.op,restored.target,restored.randomOp,restored.randomTarget],['-',-10,false,true]);
+  restored.board=Array(100).fill(0);restored.board[1]=10;
+  restored.attempt(0,1,1,()=>.999);
+  assert.equal(restored.op,'-');assert.equal(restored.target,10);
+});
+test('랜덤 조합 모두 정답을 계속 찾으며 50쌍을 제거해 완료',()=>{
+  for(const options of [{randomOp:true},{randomTarget:true},{randomOp:true,randomTarget:true}]){
+    const g=new Game('+',5,'manual',options);
+    for(let turn=0;turn<50;turn++){
+      const pair=findPair(g.board,g.op,g.target);assert.ok(pair);
+      assert.equal(g.attempt(...pair).correct,true);
+      g.settle();if(!g.ended)g.refreshIfNeeded();
+    }
+    assert.equal(g.ended,true);assert.equal(g.correct,50);
+  }
+});
