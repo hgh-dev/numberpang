@@ -8,14 +8,15 @@ export function chooseGameSettings(opChoice,targetChoice,random=Math.random) {
   return {op,target};
 }
 export function adjacent(a,b) { return Number.isInteger(a)&&Number.isInteger(b)&&a>=0&&b>=0&&a<100&&b<100&&Math.abs(a%10-b%10)+Math.abs(Math.floor(a/10)-Math.floor(b/10))===1; }
-export function matches(board,a,b,op,target) { return adjacent(a,b)&&board[a]!=null&&board[b]!=null&&(op==='+'?board[a]+board[b]:board[a]-board[b])===target; }
+export function selectable(board,a,b) { return Number.isInteger(a)&&Number.isInteger(b)&&a>=0&&b>=0&&a<100&&b<100&&a!==b&&board[a]!=null&&board[b]!=null; }
+export function matches(board,a,b,op,target) { return selectable(board,a,b)&&(op==='+'?board[a]+board[b]:board[a]-board[b])===target; }
 export function findPair(board,op,target) {
-  for(let a=0;a<100;a++) for(const b of [a-10,a+10,a-1,a+1]) if(matches(board,a,b,op,target)) return [a,b];
+  for(let a=0;a<100;a++) for(let b=0;b<100;b++) if(matches(board,a,b,op,target)) return [a,b];
   return null;
 }
 export function findMatchingTiles(board,op,target) {
   const tiles=new Set();
-  for(let a=0;a<100;a++) for(const b of [a+1,a+10]) {
+  for(let a=0;a<100;a++) for(let b=a+1;b<100;b++) {
     if(matches(board,a,b,op,target)||matches(board,b,a,op,target)){tiles.add(a);tiles.add(b);}
   }
   return [...tiles];
@@ -38,19 +39,14 @@ export function rearrangeRemaining(board,op,target,random=Math.random) {
   if(count===0||count%2) throw new RangeError('남은 블록은 짝수여야 합니다.');
   const next=board.map(n=>n==null?null:Math.floor(random()*11));
   if(!findPair(next,op,target)) {
-    const neighbors=[];
-    for(let a=0;a<100;a++)for(const b of [a+1,a+10])if(next[a]!=null&&next[b]!=null&&adjacent(a,b))neighbors.push([a,b]);
-    if(!neighbors.length){
-      // 인접한 블록이 전혀 없을 때만 위치를 모아 게임을 계속합니다.
-      const numbers=next.filter(n=>n!=null);next.fill(null);
-      for(let i=0;i<numbers.length;i++){const row=9-Math.floor(i/10),col=i%10;next[row*10+col]=numbers[i];}
-      neighbors.push([90,91]);
-    }
+    const occupied=next.flatMap((n,i)=>n==null?[]:[i]);
+    const firstIndex=Math.floor(random()*occupied.length);
+    const first=occupied.splice(firstIndex,1)[0];
+    const second=occupied[Math.floor(random()*occupied.length)];
     const pairs=[];
     for(let a=0;a<=10;a++) for(let b=0;b<=10;b++) if((op==='+'?a+b:a-b)===target) pairs.push([a,b]);
     if(!pairs.length) throw new RangeError('목표 숫자 범위를 확인해 주세요.');
     const [a,b]=pairs[Math.floor(random()*pairs.length)];
-    const [first,second]=neighbors[Math.floor(random()*neighbors.length)];
     next[first]=a;next[second]=b;
   }
   return next;
@@ -68,14 +64,15 @@ export class Game {
   tick(ms,active=true) {if(this.ended||!active)return;this.elapsed+=Math.max(0,ms);if(this.elapsed-this.lastCorrect>5000)this.combo=0;}
   useHint() {if(this.ended||this.hintsUsed>=3)return [];const tiles=findMatchingTiles(this.board,this.op,this.target);if(tiles.length)this.hintsUsed++;return tiles;}
   attempt(a,b,completedAt=Date.now()) {
-    if(this.ended||!adjacent(a,b)||this.board[a]==null||this.board[b]==null)return {valid:false};
+    if(this.ended||!selectable(this.board,a,b))return {valid:false};
     if(!matches(this.board,a,b,this.op,this.target)){this.combo=0;return {valid:true,correct:false};}
     this.combo=this.elapsed-this.lastCorrect<=5000?this.combo+1:1;
     this.lastCorrect=this.elapsed;this.maxCombo=Math.max(this.maxCombo,this.combo);this.correct++;
-    const points=Math.min(500,100+(this.combo-1)*50);this.score+=points;
+    const adjacencyBonus=adjacent(a,b)?100:0;
+    const points=Math.min(500,100+(this.combo-1)*50)+adjacencyBonus;this.score+=points;
     this.board[a]=null;this.board[b]=null;
     if(this.board.every(n=>n==null)){this.ended=true;this.completedAt=completedAt;}
-    return {valid:true,correct:true,points};
+    return {valid:true,correct:true,points,adjacencyBonus};
   }
   settle() {const result=gravity(this.board);this.board=result.board;return result.moves;}
   refreshIfNeeded() {if(this.ended||findPair(this.board,this.op,this.target))return false;this.board=rearrangeRemaining(this.board,this.op,this.target);return true;}

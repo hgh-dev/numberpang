@@ -1,4 +1,4 @@
-import {Game,adjacent,chooseGameSettings} from './engine.js';
+import {Game,chooseGameSettings} from './engine.js';
 const $=s=>document.querySelector(s);
 let mode='manual',op='+',fixedOp='+',randomTarget=false,game=null,paused=false,phase='setup',busy=false,selected=null,pointer=null,serial=0,lastFrame=performance.now(),audio=null,installPrompt=null,resultChoiceMade=false;
 const storage={get(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback;}catch{return fallback;}},set(key,value){try{localStorage.setItem(key,JSON.stringify(value));return true;}catch{return false;}},remove(key){try{localStorage.removeItem(key);}catch{}}};
@@ -6,7 +6,36 @@ let prefs=storage.get('np-prefs',{sound:true,reduce:matchMedia('(prefers-reduced
 let history=storage.get('np-time-records',[]);if(!Array.isArray(history))history=[];
 const formatTime=ms=>{const seconds=Math.floor(ms/1000);return `${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;};
 function applyPrefs(){document.body.classList.toggle('reduce-motion',prefs.reduce);$('#reduce').checked=prefs.reduce;$('#sound').textContent=prefs.sound?'♫':'♪';$('#sound').setAttribute('aria-label',prefs.sound?'효과음 끄기':'효과음 켜기');$('#sound').setAttribute('aria-pressed',String(prefs.sound));storage.set('np-prefs',prefs);}
-function sound(correct=true){if(!prefs.sound)return;try{audio??=new (window.AudioContext||window.webkitAudioContext)();audio.resume();const now=audio.currentTime;const notes=correct?[523,659,784]:[294,262];notes.forEach((hz,i)=>{const o=audio.createOscillator(),g=audio.createGain();o.type='sine';o.frequency.value=hz+(correct?Math.min(game?.combo||0,9)*12:0);g.gain.setValueAtTime(0,now+i*.07);g.gain.linearRampToValueAtTime(.07,now+i*.07+.01);g.gain.exponentialRampToValueAtTime(.001,now+i*.07+.16);o.connect(g);g.connect(audio.destination);o.start(now+i*.07);o.stop(now+i*.07+.17);});}catch{}}
+function unlockAudio(){
+  if(!prefs.sound)return;
+  try{
+    audio??=new (window.AudioContext||window.webkitAudioContext)();
+    if(audio.state==='suspended')audio.resume().catch(()=>{});
+  }catch{}
+}
+function sound(correct=true,combo=0){
+  if(!prefs.sound)return;
+  unlockAudio();
+  if(!audio)return;
+  try{
+    const now=audio.currentTime;
+    const tone=(hz,delay,duration,type='sine',volume=.07)=>{
+      const oscillator=audio.createOscillator(),gain=audio.createGain();
+      oscillator.type=type;oscillator.frequency.setValueAtTime(hz,now+delay);
+      gain.gain.setValueAtTime(0,now+delay);
+      gain.gain.linearRampToValueAtTime(volume,now+delay+.01);
+      gain.gain.exponentialRampToValueAtTime(.001,now+delay+duration);
+      oscillator.connect(gain);gain.connect(audio.destination);
+      oscillator.onended=()=>{oscillator.disconnect();gain.disconnect();};
+      oscillator.start(now+delay);oscillator.stop(now+delay+duration+.01);
+    };
+    (correct?[523,659,784]:[294,262]).forEach((hz,i)=>tone(hz,i*.06,.14));
+    if(correct&&combo>=2){
+      const pitch=2**(Math.min(combo-2,10)/12);
+      [784,988,1175,1568].forEach((hz,i)=>tone(hz*pitch,.22+i*.065,.16,'triangle',.045));
+    }
+  }catch{}
+}
 function updateBest(){const fastest=history.filter(r=>Number.isFinite(r.elapsed)).reduce((best,r)=>Math.min(best,r.elapsed),Infinity);$('#home-best').textContent=Number.isFinite(fastest)?formatTime(fastest):'—';}
 applyPrefs();updateBest();
 $('#sound').onclick=()=>{prefs.sound=!prefs.sound;applyPrefs();if(prefs.sound)sound();};$('#reduce').onchange=e=>{prefs.reduce=e.target.checked;applyPrefs();};
@@ -22,7 +51,7 @@ function modal(html){$('#modal-content').innerHTML=html;if(!$('#modal').open)$('
 function closeModal(){if($('#modal').open)$('#modal').close();}
 // 세대 번호로 재시작 이전의 비동기 애니메이션이 새 게임에 영향을 주지 않게 합니다.
 async function wait(ms,token){let prev=performance.now(),left=ms;while(left>0){await new Promise(resolve=>setTimeout(resolve,16));if(token!==serial)return false;const now=performance.now();if(!paused)left-=now-prev;prev=now;}return token===serial;}
-async function start(chosenOp,target,chosenMode){const token=++serial;game=new Game(chosenOp,target,chosenMode);resultChoiceMade=false;paused=false;phase='countdown';busy=true;selected=null;pointer=null;closeModal();$('#setup').hidden=true;$('#play').hidden=false;document.body.classList.add('play-active');$('#goal').textContent=target;$('#operation-word').textContent=chosenOp==='+'?'더해서':'빼서';$('#order-help').textContent=chosenOp==='+'?'옆에 있는 숫자 두 개를 골라봐':'먼저 고른 숫자 − 다음 숫자, 순서가 중요해!';$('#equation').textContent='준비됐지?';$('#reward').textContent='';render();hud();saveProgress();$('#board-message').hidden=false;for(const n of ['3','2','1']){$('#board-message').innerHTML=`<span class="countdown">${n}</span>`;if(!await wait(1000,token))return;}$('#board-message').hidden=true;phase='playing';busy=false;lastFrame=performance.now();saveProgress();}
+async function start(chosenOp,target,chosenMode){const token=++serial;game=new Game(chosenOp,target,chosenMode);resultChoiceMade=false;paused=false;phase='countdown';busy=true;selected=null;pointer=null;closeModal();$('#setup').hidden=true;$('#play').hidden=false;document.body.classList.add('play-active');$('#goal').textContent=target;$('#operation-word').textContent=chosenOp==='+'?'더해서':'빼서';$('#order-help').textContent=chosenOp==='+'?'숫자 두 개를 골라봐 · 붙어 있으면 +100점':'먼저 고른 숫자 − 다음 숫자, 순서가 중요해!';$('#equation').textContent='준비됐지?';$('#reward').textContent='';render();hud();saveProgress();$('#board-message').hidden=false;for(const n of ['3','2','1']){$('#board-message').innerHTML=`<span class="countdown">${n}</span>`;if(!await wait(1000,token))return;}$('#board-message').hidden=true;phase='playing';busy=false;lastFrame=performance.now();saveProgress();}
 function render(){const frag=document.createDocumentFragment();game.board.forEach((number,i)=>{const b=document.createElement('button');b.className='tile'+(number==null?' empty':'');b.dataset.index=i;b.dataset.number=number==null?'':String(number);b.textContent=number??'';b.disabled=number==null;b.setAttribute('aria-label',number==null?`${Math.floor(i/10)+1}행 ${i%10+1}열 빈칸`:`${Math.floor(i/10)+1}행 ${i%10+1}열 숫자 ${number}`);frag.append(b);});$('#board').replaceChildren(frag);clearSelection();}
 function hud() {if(!game)return;$('#time').textContent=formatTime(game.elapsed);$('#score').textContent=game.score.toLocaleString('ko-KR');$('#combo').textContent=game.combo>=2?`${game.combo} COMBO! ✦`:'차근차근, 하나씩!';const hintsLeft=Math.max(0,3-game.hintsUsed);$('#hint').textContent=`힌트 ✦ ${hintsLeft}/3`;$('#hint').disabled=hintsLeft===0;$('#hint').setAttribute('aria-label',`남은 모든 정답 힌트 보기, ${hintsLeft}회 남음`);}
 let lastSavedSecond=-1;
@@ -33,20 +62,20 @@ function tile(i){return $('#board').children[i];}
 function clearSelection(){selected=null;$('#connector').style.visibility='hidden';document.querySelectorAll('.selected').forEach(b=>b.classList.remove('selected'));$('#connector line').setAttribute('x1',0);$('#connector line').setAttribute('x2',0);$('#connector line').setAttribute('y1',0);$('#connector line').setAttribute('y2',0);}
 function highlight(a,b=null){$('#connector').style.visibility='visible';document.querySelectorAll('.selected').forEach(t=>t.classList.remove('selected'));tile(a)?.classList.add('selected');if(b!=null)tile(b)?.classList.add('selected');const line=$('#connector line');const base=$('#board-wrap').getBoundingClientRect();const ra=tile(a).getBoundingClientRect(),rb=tile(b??a).getBoundingClientRect();line.setAttribute('x1',ra.left+ra.width/2-base.left);line.setAttribute('y1',ra.top+ra.height/2-base.top);line.setAttribute('x2',rb.left+rb.width/2-base.left);line.setAttribute('y2',rb.top+rb.height/2-base.top);}
 function indexAt(x,y){const el=document.elementFromPoint(x,y)?.closest('.tile');return el&&!el.disabled?Number(el.dataset.index):null;}
-$('#board').addEventListener('pointerdown',e=>{if(pointer||!canInput()||e.button!==0)return;const i=indexAt(e.clientX,e.clientY);if(i==null)return;e.preventDefault();pointer={id:e.pointerId,start:i,end:i,prior:selected,moved:false};$('#board').setPointerCapture(e.pointerId);highlight(i);});
-$('#board').addEventListener('pointermove',e=>{if(!pointer||pointer.id!==e.pointerId)return;const i=indexAt(e.clientX,e.clientY);if(i!==pointer.start)pointer.moved=true;pointer.end=i;if(i!=null&&adjacent(pointer.start,i))highlight(pointer.start,i);else highlight(pointer.start);});
-$('#board').addEventListener('pointerup',e=>{if(!pointer||pointer.id!==e.pointerId)return;const p=pointer;pointer=null;if(!canInput()){clearSelection();return;}const end=indexAt(e.clientX,e.clientY);if(p.moved){if(end!=null&&adjacent(p.start,end))attempt(p.start,end);else clearSelection();}else choose(p.start,p.prior);});
+$('#board').addEventListener('pointerdown',e=>{if(pointer||!canInput()||e.button!==0)return;const i=indexAt(e.clientX,e.clientY);if(i==null)return;e.preventDefault();unlockAudio();pointer={id:e.pointerId,start:i,end:i,prior:selected,moved:false};$('#board').setPointerCapture(e.pointerId);highlight(i);});
+$('#board').addEventListener('pointermove',e=>{if(!pointer||pointer.id!==e.pointerId)return;const i=indexAt(e.clientX,e.clientY);if(i!==pointer.start)pointer.moved=true;pointer.end=i;if(i!=null&&pointer.start!==i)highlight(pointer.start,i);else highlight(pointer.start);});
+$('#board').addEventListener('pointerup',e=>{if(!pointer||pointer.id!==e.pointerId)return;const p=pointer;pointer=null;if(!canInput()){clearSelection();return;}const end=indexAt(e.clientX,e.clientY);if(p.moved){if(end!=null&&p.start!==end)attempt(p.start,end);else clearSelection();}else choose(p.start,p.prior);});
 $('#board').addEventListener('pointercancel',()=>{pointer=null;clearSelection();});
 $('#board').addEventListener('click',e=>{if(e.detail===0&&canInput()){const t=e.target.closest('.tile');if(t&&!t.disabled)choose(Number(t.dataset.index),selected);}});
-function choose(i,prior){if(prior!=null&&prior!==i&&adjacent(prior,i)){attempt(prior,i);return;}if(prior===i){clearSelection();return;}selected=i;highlight(i);$('#equation').textContent=`${game.board[i]} ${game.op==='+'?'+':'−'} ? = ${game.target}`;}
-async function attempt(a,b){if(!canInput())return;busy=true;const token=serial;const x=game.board[a],y=game.board[b],result=game.attempt(a,b);saveProgress();clearSelection();if(!result.valid){busy=false;return;}$('#equation').textContent=`${x} ${game.op==='+'?'+':'−'} ${y} = ${game.op==='+'?x+y:x-y}`;sound(result.correct);if(!result.correct){tile(a).classList.add('wrong');tile(b).classList.add('wrong');$('#reward').textContent='괜찮아, 다시 해보자!';if(!await wait(prefs.reduce?30:320,token))return;tile(a).classList.remove('wrong');tile(b).classList.remove('wrong');busy=false;return;}
- hud();if(!prefs.reduce){$('#reward').animate([{opacity:0,transform:'translateY(6px)'},{opacity:1,transform:'translateY(0)'}],{duration:240});if(game.combo>=2)$('#combo').animate([{transform:'scale(1)'},{transform:`scale(${1+Math.min(game.combo,9)*.025})`},{transform:'scale(1)'}],{duration:300});}tile(a).classList.add('pop');tile(b).classList.add('pop');$('#reward').textContent=`잘했어! +${result.points}점 ✦`;if(game.ended){render();finish();return;}if(!await wait(prefs.reduce?30:230,token))return;
+function choose(i,prior){unlockAudio();if(prior!=null&&prior!==i){attempt(prior,i);return;}if(prior===i){clearSelection();return;}selected=i;highlight(i);$('#equation').textContent=`${game.board[i]} ${game.op==='+'?'+':'−'} ? = ${game.target}`;}
+async function attempt(a,b){if(!canInput())return;busy=true;const token=serial;const x=game.board[a],y=game.board[b],result=game.attempt(a,b);saveProgress();clearSelection();if(!result.valid){busy=false;return;}$('#equation').textContent=`${x} ${game.op==='+'?'+':'−'} ${y} = ${game.op==='+'?x+y:x-y}`;sound(result.correct,result.correct?game.combo:0);if(!result.correct){tile(a).classList.add('wrong');tile(b).classList.add('wrong');$('#reward').textContent='괜찮아, 다시 해보자!';if(!await wait(prefs.reduce?30:320,token))return;tile(a).classList.remove('wrong');tile(b).classList.remove('wrong');busy=false;return;}
+ hud();if(!prefs.reduce){$('#reward').animate([{opacity:0,transform:'translateY(6px)'},{opacity:1,transform:'translateY(0)'}],{duration:240});if(game.combo>=2)$('#combo').animate([{transform:'scale(1)'},{transform:`scale(${1+Math.min(game.combo,9)*.025})`},{transform:'scale(1)'}],{duration:300});}tile(a).classList.add('pop');tile(b).classList.add('pop');$('#reward').textContent=`${result.adjacencyBonus?'붙은 블록 보너스!':'잘했어!'} +${result.points}점 ✦`;if(game.ended){render();finish();return;}if(!await wait(prefs.reduce?30:230,token))return;
  const moves=game.settle();saveProgress();render();const animations=[];if(!prefs.reduce){const step=tile(10).getBoundingClientRect().top-tile(0).getBoundingClientRect().top;for(const m of moves)animations.push(tile(m.to).animate([{transform:`translateY(${(m.from-m.to)/10*step}px)`},{transform:'translateY(0)'}],{duration:280,easing:'cubic-bezier(.3,.1,.4,1)'}));}
- if(!await wait(prefs.reduce?30:290,token))return;animations.forEach(a=>a.cancel());const occupied=game.board.map(n=>n!=null);if(game.refreshIfNeeded()){const moved=game.board.some((n,i)=>(n!=null)!==occupied[i]);saveProgress();$('#board-message').textContent=moved?'떨어진 블록 모으기!':'숫자만 다시 섞기!';$('#board-message').hidden=false;if(!await wait(650,token))return;render();$('#board').classList.add('refreshing');$('#board-message').hidden=true;if(!await wait(350,token))return;$('#board').classList.remove('refreshing');}busy=false;
+ if(!await wait(prefs.reduce?30:290,token))return;animations.forEach(a=>a.cancel());if(game.refreshIfNeeded()){saveProgress();$('#board-message').textContent='숫자만 다시 섞기!';$('#board-message').hidden=false;if(!await wait(650,token))return;render();$('#board').classList.add('refreshing');$('#board-message').hidden=true;if(!await wait(350,token))return;$('#board').classList.remove('refreshing');}busy=false;
 }
 $('#hint').onclick=async()=>{if(!canInput())return;const indices=game.useHint();if(!indices.length)return;busy=true;saveProgress();hud();const token=serial;clearSelection();for(let n=0;n<3;n++){for(const i of indices)tile(i)?.classList.add('hint');if(!await wait(300,token))return;for(const i of indices)tile(i)?.classList.remove('hint');if(!await wait(180,token))return;}busy=false;};
 function pause(){if(!['playing','countdown'].includes(phase)||paused)return;syncTime();if(phase==='ended')return;paused=true;pointer=null;clearSelection();saveProgress();modal('<span class="eyebrow">잠깐 쉬어 가요</span><h2>잘하고 있어!</h2><p>준비되면 계속 이어서 해보자.</p><button class="primary" id="resume">계속하기 →</button><button class="secondary" id="restart">처음부터 다시</button><button class="secondary" id="home">설정으로 돌아가기</button><div class="modal-options"><label><input type="checkbox" id="pause-sound"> 효과음 켜기</label><label><input type="checkbox" id="pause-reduce"> 움직임 줄이기</label></div>');$('#resume').onclick=resume;$('#restart').onclick=()=>start(game.op,game.target,game.mode);$('#home').onclick=home;$('#pause-sound').checked=prefs.sound;$('#pause-reduce').checked=prefs.reduce;$('#pause-sound').onchange=e=>{prefs.sound=e.target.checked;applyPrefs();};$('#pause-reduce').onchange=e=>{prefs.reduce=e.target.checked;applyPrefs();};}
-function resume(){closeModal();paused=false;lastFrame=performance.now();saveProgress();}
+function resume(){unlockAudio();closeModal();paused=false;lastFrame=performance.now();saveProgress();}
 $('#pause').onclick=pause;document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});window.addEventListener('pagehide',()=>{pause();saveProgress();});window.addEventListener('blur',pause);window.addEventListener('resize',()=>{pointer=null;clearSelection();});
 $('#modal').addEventListener('cancel',e=>{e.preventDefault();if(paused)resume();else if(phase==='setup')closeModal();});
 function home(){serial++;phase='setup';paused=false;busy=false;pointer=null;closeModal();storage.remove(ACTIVE_STATE);$('#save-warning').hidden=true;$('#play').hidden=true;$('#setup').hidden=false;document.body.classList.remove('play-active');updateBest();$('#start').focus();}
@@ -72,7 +101,7 @@ function restoreAfterUpdate(){
   try{game=Object.assign(new Game(state.op,state.target,state.mode),state);if(game.lastCorrect===null)game.lastCorrect=-Infinity;if(!game.ended){game.settle();game.refreshIfNeeded();}}catch{storage.remove(ACTIVE_STATE);return;}
   $('#setup').hidden=true;$('#play').hidden=false;document.body.classList.add('play-active');
   $('#goal').textContent=game.target;$('#operation-word').textContent=game.op==='+'?'더해서':'빼서';
-  $('#order-help').textContent=game.op==='+'?'옆에 있는 숫자 두 개를 골라봐':'먼저 고른 숫자 − 다음 숫자, 순서가 중요해!';
+  $('#order-help').textContent=game.op==='+'?'숫자 두 개를 골라봐 · 붙어 있으면 +100점':'먼저 고른 숫자 − 다음 숫자, 순서가 중요해!';
   $('#board-message').hidden=true;render();hud();lastFrame=performance.now();
   if(saved.phase==='ended'||game.ended){phase='playing';finish();if(saved.resultChoiceMade)showResult();else if(saved.pendingName!=null){askName();$('#player-name').value=saved.pendingName;saveProgress();}}
   else{phase='playing';pause();}
