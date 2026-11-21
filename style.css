@@ -53,3 +53,9 @@ dialog{max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow-y:a
 /* 숫자를 읽고 누를 수 있도록 배경 없는 반투명 콤보를 잠깐 표시합니다. */
 #combo{position:absolute;inset:0;z-index:4;display:grid;place-items:center;pointer-events:none;user-select:none;opacity:0;margin:0;font-size:clamp(24px,10cqi,56px);font-weight:900;letter-spacing:-.03em;white-space:nowrap;color:rgb(50 107 80 / 12%);-webkit-text-stroke:1.5px #326b50;text-shadow:none}
 .game-footer{justify-content:center}
+
+.record-sort{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px}
+.record-sort select{min-width:0;max-width:75%;font:inherit;padding:8px;border:1px solid #bdcbb9;border-radius:8px;background:#fff;color:inherit}
+.record-row .record-stats{color:#42634c;font-weight:700}
+.record-total{flex:none;max-width:42%;text-align:right;overflow-wrap:anywhere}
+.record-total small,.record-total b{display:block}

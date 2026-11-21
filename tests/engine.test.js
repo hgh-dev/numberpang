@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Game,matches,adjacent,gravity,findPair,findMatchingTiles,createBoard,rearrangeRemaining,chooseGameSettings} from '../engine.js';
+import {totalScore,compareRecords,Game,matches,adjacent,gravity,findPair,findMatchingTiles,createBoard,rearrangeRemaining,chooseGameSettings} from '../engine.js';
 function board(a,b){const grid=Array(100).fill(null);grid[0]=a;grid[1]=b;return grid;}
 test('10 블록과 확장된 목표 숫자 지원',()=>{assert.equal(matches(board(10,10),0,1,'+',20),true);assert.equal(matches(board(0,10),0,1,'-',-10),true);assert.ok(createBoard('+',20,()=>.999).every(n=>n===10));assert.deepEqual(chooseGameSettings('random',10,()=>.999),{op:'-',target:10});});
 test('부호와 숫자를 각각 랜덤으로 선택',()=>{assert.deepEqual(chooseGameSettings('+','random',()=>.999),{op:'+',target:20});assert.deepEqual(chooseGameSettings('-','random',()=>0),{op:'-',target:-10});assert.deepEqual(chooseGameSettings('random',7,()=>0),{op:'+',target:7});assert.deepEqual(chooseGameSettings('random',7,()=>.999),{op:'-',target:7});const values=[.999,0];assert.deepEqual(chooseGameSettings('random','random',()=>values.shift()),{op:'-',target:-10});});
@@ -64,4 +64,27 @@ test('여러 정답이 있어도 힌트는 한 쌍만 표시하고 사용 횟수
     assert.equal(pair.length,2);assert.equal(matches(g.board,...pair,op,target),true);
     assert.equal(g.hintsUsed,1);assert.deepEqual(g.board,before);
   }
+});
+
+test('총점은 분당 점수로 반올림하며 높은 점수와 빠른 완료에 유리',()=>{
+  assert.equal(totalScore(10000,120000),5000);
+  assert.equal(totalScore(10000,60000),10000);
+  assert.equal(totalScore(12000,120000),6000);
+  assert.equal(totalScore(10000,180000),3333);
+  assert.equal(totalScore(0,120000),0);
+  for(const [score,time] of [[undefined,1000],[100,0],[100,-1],[-1,1000],[Infinity,1000],[100,NaN]]){
+    assert.equal(totalScore(score,time),null);
+  }
+});
+test('기존 기록도 총점을 계산해 정렬하고 동점은 빠른 시간·먼저 달성한 순',()=>{
+  const records=[
+    {name:'missing',elapsed:30000,date:1},
+    {name:'slow',score:10000,elapsed:120000,date:2},
+    {name:'fast-later',score:5000,elapsed:60000,date:3},
+    {name:'fast',score:5000,elapsed:60000,date:1},
+    {name:'best',score:12000,elapsed:120000,date:4}
+  ];
+  assert.deepEqual([...records].sort(compareRecords).map(r=>r.name),['best','fast','fast-later','slow','missing']);
+  assert.equal([...records].sort((a,b)=>compareRecords(a,b,'time'))[0].name,'missing');
+  assert.equal([...records].sort((a,b)=>compareRecords(a,b,'score'))[0].name,'best');
 });

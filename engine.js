@@ -77,3 +77,15 @@ export class Game {
   settle() {const result=gravity(this.board);this.board=result.board;return result.moves;}
   refreshIfNeeded() {if(this.ended||findPair(this.board,this.op,this.target))return false;this.board=rearrangeRemaining(this.board,this.op,this.target);return true;}
 }
+
+export function totalScore(score,elapsed){
+  if(!Number.isFinite(score)||score<0||!Number.isFinite(elapsed)||elapsed<=0)return null;
+  return Math.round(score*60000/elapsed);
+}
+export function compareRecords(a,b,order='total'){
+  const value=r=>order==='time'?(Number.isFinite(r.elapsed)&&r.elapsed>0?-r.elapsed:null):order==='score'?(Number.isFinite(r.score)&&r.score>=0?r.score:null):totalScore(r.score,r.elapsed);
+  const first=value(a),second=value(b);
+  if(first===null&&second!==null)return 1;
+  if(second===null&&first!==null)return -1;
+  return (second??0)-(first??0)||a.elapsed-b.elapsed||a.date-b.date;
+}

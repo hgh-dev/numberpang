@@ -1,4 +1,4 @@
-import {Game,chooseGameSettings} from './engine.js';
+import {Game,chooseGameSettings,totalScore,compareRecords} from './engine.js';
 const $=s=>document.querySelector(s);
 let mode='manual',op='+',fixedOp='+',randomTarget=false,game=null,paused=false,phase='setup',busy=false,selected=null,pointer=null,serial=0,lastFrame=performance.now(),audio=null,installPrompt=null,resultChoiceMade=false;
 const storage={get(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback;}catch{return fallback;}},set(key,value){try{localStorage.setItem(key,JSON.stringify(value));return true;}catch{return false;}},remove(key){try{localStorage.removeItem(key);}catch{}}};
@@ -102,10 +102,33 @@ $('#pause').onclick=pause;document.addEventListener('visibilitychange',()=>{if(d
 $('#modal').addEventListener('cancel',e=>{e.preventDefault();if(paused)resume();else if(phase==='setup')closeModal();});
 function home(){serial++;phase='setup';paused=false;busy=false;pointer=null;closeModal();storage.remove(ACTIVE_STATE);$('#save-warning').hidden=true;$('#play').hidden=true;$('#setup').hidden=false;document.body.classList.remove('play-active');updateBest();$('#start').focus();}
 function finish(){if(phase==='ended')return;game.completedAt??=Date.now();phase='ended';serial++;busy=true;pointer=null;clearSelection();saveProgress();modal(`<div class="confetti">✦ ♕ ✦</div><h2>모든 블록을 없앴어!</h2><p>걸린 시간 <strong>${formatTime(game.elapsed)}</strong><br>기록으로 남기겠습니까?</p><button class="primary" id="save-yes">예, 기록할래요</button><button class="secondary" id="save-no">아니요</button>`);$('#save-yes').onclick=askName;$('#save-no').onclick=showResult;}
-function askName(){modal(`<h2>이름을 적어 주세요</h2><p>순위에 표시할 이름이에요.</p><form id="name-form"><input id="player-name" class="name-input" type="text" maxlength="20" required placeholder="이름" autocomplete="nickname"><p id="save-error" class="helper" role="alert"></p><button class="primary" type="submit">기록 저장</button></form><button class="secondary" id="save-back">돌아가기</button>`);$('#player-name').focus();$('#player-name').oninput=saveProgress;$('#save-back').onclick=finishPrompt;$('#name-form').onsubmit=e=>{e.preventDefault();const name=$('#player-name').value.trim();if(!name){$('#player-name').focus();return;}const next=[...history,{name,date:game.completedAt,op:game.op,target:game.target,mode:game.mode,elapsed:Math.round(game.elapsed),score:game.score}].sort((a,b)=>a.elapsed-b.elapsed||a.date-b.date);if(!storage.set('np-time-records',next)){$('#save-error').textContent='기록을 저장하지 못했어요. 저장 공간을 확인하고 다시 시도해 주세요.';return;}history=next;showResult();};}
+function askName(){modal(`<h2>이름을 적어 주세요</h2><p>순위에 표시할 이름이에요.</p><form id="name-form"><input id="player-name" class="name-input" type="text" maxlength="20" required placeholder="이름" autocomplete="nickname"><p id="save-error" class="helper" role="alert"></p><button class="primary" type="submit">기록 저장</button></form><button class="secondary" id="save-back">돌아가기</button>`);$('#player-name').focus();$('#player-name').oninput=saveProgress;$('#save-back').onclick=finishPrompt;$('#name-form').onsubmit=e=>{e.preventDefault();const name=$('#player-name').value.trim();if(!name){$('#player-name').focus();return;}const next=[...history,{name,date:game.completedAt,op:game.op,target:game.target,mode:game.mode,elapsed:Math.round(game.elapsed),score:game.score}].sort(compareRecords);if(!storage.set('np-time-records',next)){$('#save-error').textContent='기록을 저장하지 못했어요. 저장 공간을 확인하고 다시 시도해 주세요.';return;}history=next;showResult();};}
 function finishPrompt(){modal(`<h2>기록으로 남기겠습니까?</h2><p>걸린 시간 ${formatTime(game.elapsed)}</p><button class="primary" id="save-yes">예, 기록할래요</button><button class="secondary" id="save-no">아니요</button>`);$('#save-yes').onclick=askName;$('#save-no').onclick=showResult;}
-function showResult(){resultChoiceMade=true;saveProgress();modal(`<div class="confetti">✦ ♕ ✦</div><h2>게임 완료!</h2><p>블록을 모두 없앴어요.</p><div class="big">${formatTime(game.elapsed)}</div><div class="result-grid"><div>걸린 시간<b>${formatTime(game.elapsed)}</b></div><div>점수<b>${game.score.toLocaleString('ko-KR')}점</b></div><div>정답 횟수<b>${game.correct}번</b></div><div>최대 콤보<b>${game.maxCombo}</b></div></div><button class="primary" id="again">한 번 더 놀자 →</button><button class="secondary" id="show-records">기록 보기</button><button class="secondary" id="home">설정으로 돌아가기</button>`);$('#again').onclick=()=>start(game.op,game.target,game.mode);$('#show-records').onclick=showRecords;$('#home').onclick=home;}
-function showRecords(){modal('<h2>완료 시간 순위</h2><p>빠른 시간 순 · 이 기기에 저장돼요</p><div id="records"></div><button class="secondary" id="close-records">닫기</button>');const list=$('#records');if(!history.length)list.textContent='아직 저장된 기록이 없어요.';history.forEach((r,index)=>{const row=document.createElement('div');row.className='record-row';const info=document.createElement('span'),time=document.createElement('b'),name=document.createElement('strong'),detail=document.createElement('small');name.textContent=`${index+1}위 · ${r.name}`;detail.textContent=`${new Date(r.date).toLocaleString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})} · ${r.op==='+'?'더하기':'빼기'} ${r.target}`;time.textContent=formatTime(r.elapsed);info.append(name,detail);row.append(info,time);list.append(row);});$('#close-records').onclick=()=>{if(phase==='ended')showResult();else closeModal();};}
+function showResult(){resultChoiceMade=true;saveProgress();modal(`<div class="confetti">✦ ♕ ✦</div><h2>게임 완료!</h2><p>블록을 모두 없앴어요.</p><p>총점 · 분당 점수</p><div class="big">${(totalScore(game.score,Math.round(game.elapsed))??0).toLocaleString('ko-KR')}</div><div class="result-grid"><div>걸린 시간<b>${formatTime(game.elapsed)}</b></div><div>점수<b>${game.score.toLocaleString('ko-KR')}점</b></div><div>정답 횟수<b>${game.correct}번</b></div><div>최대 콤보<b>${game.maxCombo}</b></div></div><button class="primary" id="again">한 번 더 놀자 →</button><button class="secondary" id="show-records">기록 보기</button><button class="secondary" id="home">설정으로 돌아가기</button>`);$('#again').onclick=()=>start(game.op,game.target,game.mode);$('#show-records').onclick=showRecords;$('#home').onclick=home;}
+function showRecords(){
+  modal('<h2>기록 순위</h2><p>총점 = 점수 ÷ 소요 시간(분), 반올림<br>이 기기에 저장돼요</p><label class="record-sort">정렬 <select id="record-order"><option value="total">총점 높은 순</option><option value="score">점수 높은 순</option><option value="time">시간 빠른 순</option></select></label><div id="records"></div><button class="secondary" id="close-records">닫기</button>');
+  const renderRecords=()=>{
+    const list=$('#records');list.replaceChildren();
+    if(!history.length){list.textContent='아직 저장된 기록이 없어요.';return;}
+    [...history].sort((a,b)=>compareRecords(a,b,$('#record-order').value)).forEach((r,index)=>{
+      const row=document.createElement('div');row.className='record-row';
+      const info=document.createElement('span'),total=document.createElement('div'),name=document.createElement('strong'),detail=document.createElement('small'),stats=document.createElement('small');
+      name.textContent=`${index+1}위 · ${r.name}`;
+      detail.textContent=`${new Date(r.date).toLocaleString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})} · ${r.op==='+'?'더하기':'빼기'} ${r.target}`;
+      const score=Number.isFinite(r.score)&&r.score>=0?r.score.toLocaleString('ko-KR')+'점':'미기록';
+      const time=Number.isFinite(r.elapsed)&&r.elapsed>0?formatTime(r.elapsed):'미기록';
+      stats.className='record-stats';stats.textContent=`점수 ${score} · 시간 ${time}`;
+      total.className='record-total';
+      const label=document.createElement('small'),value=document.createElement('b');
+      label.textContent='총점';
+      const points=totalScore(r.score,r.elapsed);value.textContent=points===null?'—':points.toLocaleString('ko-KR');
+      total.append(label,value);info.append(name,detail,stats);row.append(info,total);list.append(row);
+    });
+  };
+  $('#record-order').onchange=renderRecords;renderRecords();
+  $('#close-records').onclick=()=>{if(phase==='ended')showResult();else closeModal();};
+}
+
 $('#records-button').onclick=showRecords;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;$('#install').hidden=false;});$('#install').onclick=async()=>{if(installPrompt){await installPrompt.prompt();installPrompt=null;$('#install').hidden=true;}};window.addEventListener('appinstalled',()=>{$('#install').hidden=true;});
 const UPDATE_STATE='np-update-state',ACTIVE_STATE='np-active-game';
