@@ -55,3 +55,13 @@ test('떨어진 빼기도 선택 순서를 지키고 같은 블록·빈칸·잘�
   assert.deepEqual(g.useHint(),[9,90]);
   assert.equal(g.attempt(9,90).correct,true);
 });
+
+test('여러 정답이 있어도 힌트는 한 쌍만 표시하고 사용 횟수는 한 번 증가',()=>{
+  for(const [op,target] of [['+',10],['-',-5]]){
+    const g=new Game(op,target);g.board=Array(100).fill(null);
+    [g.board[0],g.board[12],g.board[40],g.board[99]]=op==='+'?[4,6,3,7]:[7,2,2,7];
+    const before=[...g.board],pair=g.useHint();
+    assert.equal(pair.length,2);assert.equal(matches(g.board,...pair,op,target),true);
+    assert.equal(g.hintsUsed,1);assert.deepEqual(g.board,before);
+  }
+});

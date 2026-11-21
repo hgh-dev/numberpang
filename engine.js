@@ -62,7 +62,7 @@ export function gravity(board) {
 export class Game {
   constructor(op,target,mode='manual') {this.op=op;this.target=target;this.mode=mode;this.board=createBoard(op,target);this.elapsed=0;this.score=0;this.combo=0;this.maxCombo=0;this.correct=0;this.hintsUsed=0;this.lastCorrect=-Infinity;this.ended=false;this.completedAt=null;}
   tick(ms,active=true) {if(this.ended||!active)return;this.elapsed+=Math.max(0,ms);if(this.elapsed-this.lastCorrect>5000)this.combo=0;}
-  useHint() {if(this.ended||this.hintsUsed>=3)return [];const tiles=findMatchingTiles(this.board,this.op,this.target);if(tiles.length)this.hintsUsed++;return tiles;}
+  useHint() {if(this.ended||this.hintsUsed>=3)return [];const pair=findPair(this.board,this.op,this.target);if(pair)this.hintsUsed++;return pair??[];}
   attempt(a,b,completedAt=Date.now()) {
     if(this.ended||!selectable(this.board,a,b))return {valid:false};
     if(!matches(this.board,a,b,this.op,this.target)){this.combo=0;return {valid:true,correct:false};}

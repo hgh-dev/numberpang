@@ -47,13 +47,35 @@ $('#op-random').onclick=()=>{op=op==='random'?fixedOp:'random';updateSetupChoice
 $('#target-random').onclick=()=>{randomTarget=!randomTarget;updateSetupChoices();};
 for(const [id,delta] of [['minus',-1],['plus',1]])$('#'+id).onclick=()=>{const [min,max]=bounds();$('#target').value=Math.min(max,Math.max(min,Number($('#target').value)+delta));};
 $('#start').onclick=()=>{let choice;try{if(mode==='random')choice=chooseGameSettings('random','random');else{if(!randomTarget&&$('#target').value.trim()==='')throw new RangeError();choice=chooseGameSettings(op,randomTarget?'random':Number($('#target').value));}}catch{const [min,max]=bounds();$('#validation').textContent=`${min}부터 ${max}까지의 정수를 골라줘!`;return;}$('#validation').textContent='';sound();start(choice.op,choice.target,mode);};
-function modal(html){$('#modal-content').innerHTML=html;if(!$('#modal').open)$('#modal').showModal();document.dispatchEvent(new Event('numberpang-modal-open'));}
-function closeModal(){if($('#modal').open)$('#modal').close();}
+let modalScroll=null;
+function lockModalScroll(){
+  if(modalScroll)return;
+  modalScroll={x:window.scrollX,y:window.scrollY};
+  document.body.style.top=`-${modalScroll.y}px`;
+  document.documentElement.classList.add('modal-open');
+}
+function unlockModalScroll(){
+  if(!modalScroll)return;
+  const {x,y}=modalScroll;modalScroll=null;
+  document.documentElement.classList.remove('modal-open');
+  document.body.style.top='';
+  window.scrollTo(x,y);
+}
+function modal(html){$('#modal-content').innerHTML=html;if(!$('#modal').open)$('#modal').showModal();lockModalScroll();document.dispatchEvent(new Event('numberpang-modal-open'));}
+function closeModal(){if($('#modal').open)$('#modal').close();unlockModalScroll();}
+$('#modal').addEventListener('close',()=>{if(!$('#modal').open)unlockModalScroll();});
 // 세대 번호로 재시작 이전의 비동기 애니메이션이 새 게임에 영향을 주지 않게 합니다.
 async function wait(ms,token){let prev=performance.now(),left=ms;while(left>0){await new Promise(resolve=>setTimeout(resolve,16));if(token!==serial)return false;const now=performance.now();if(!paused)left-=now-prev;prev=now;}return token===serial;}
-async function start(chosenOp,target,chosenMode){const token=++serial;game=new Game(chosenOp,target,chosenMode);resultChoiceMade=false;paused=false;phase='countdown';busy=true;selected=null;pointer=null;closeModal();$('#setup').hidden=true;$('#play').hidden=false;document.body.classList.add('play-active');$('#goal').textContent=target;$('#operation-word').textContent=chosenOp==='+'?'더해서':'빼서';$('#order-help').textContent=chosenOp==='+'?'숫자 두 개를 골라봐 · 붙어 있으면 +100점':'먼저 고른 숫자 − 다음 숫자, 순서가 중요해!';$('#equation').textContent='준비됐지?';$('#reward').textContent='';render();hud();saveProgress();$('#board-message').hidden=false;for(const n of ['3','2','1']){$('#board-message').innerHTML=`<span class="countdown">${n}</span>`;if(!await wait(1000,token))return;}$('#board-message').hidden=true;phase='playing';busy=false;lastFrame=performance.now();saveProgress();}
+async function start(chosenOp,target,chosenMode){comboAnimation?.cancel();const token=++serial;game=new Game(chosenOp,target,chosenMode);resultChoiceMade=false;paused=false;phase='countdown';busy=true;selected=null;pointer=null;closeModal();$('#setup').hidden=true;$('#play').hidden=false;document.body.classList.add('play-active');$('#goal').textContent=target;$('#operation-word').textContent=chosenOp==='+'?'더해서':'빼서';$('#order-help').textContent=chosenOp==='+'?'숫자 두 개를 골라봐 · 붙어 있으면 +100점':'먼저 고른 숫자 − 다음 숫자, 순서가 중요해!';$('#equation').textContent='준비됐지?';$('#reward').textContent='';render();hud();saveProgress();$('#board-message').hidden=false;for(const n of ['3','2','1']){$('#board-message').innerHTML=`<span class="countdown">${n}</span>`;if(!await wait(1000,token))return;}$('#board-message').hidden=true;phase='playing';busy=false;lastFrame=performance.now();saveProgress();}
 function render(){const frag=document.createDocumentFragment();game.board.forEach((number,i)=>{const b=document.createElement('button');b.className='tile'+(number==null?' empty':'');b.dataset.index=i;b.dataset.number=number==null?'':String(number);b.textContent=number??'';b.disabled=number==null;b.setAttribute('aria-label',number==null?`${Math.floor(i/10)+1}행 ${i%10+1}열 빈칸`:`${Math.floor(i/10)+1}행 ${i%10+1}열 숫자 ${number}`);frag.append(b);});$('#board').replaceChildren(frag);clearSelection();}
-function hud() {if(!game)return;$('#time').textContent=formatTime(game.elapsed);$('#score').textContent=game.score.toLocaleString('ko-KR');$('#combo').textContent=game.combo>=2?`${game.combo} COMBO! ✦`:'차근차근, 하나씩!';const hintsLeft=Math.max(0,3-game.hintsUsed);$('#hint').textContent=`힌트 ✦ ${hintsLeft}/3`;$('#hint').disabled=hintsLeft===0;$('#hint').setAttribute('aria-label',`남은 모든 정답 힌트 보기, ${hintsLeft}회 남음`);}
+function hud() {if(!game)return;$('#time').textContent=formatTime(game.elapsed);$('#score').textContent=game.score.toLocaleString('ko-KR');$('#combo').textContent=game.combo>=2?`${game.combo} COMBO! ✦`:'차근차근, 하나씩!';const hintsLeft=Math.max(0,3-game.hintsUsed);$('#hint').textContent=`힌트 ✦ ${hintsLeft}/3`;$('#hint').disabled=hintsLeft===0;$('#hint').setAttribute('aria-label',`정답 한 쌍 힌트 보기, ${hintsLeft}회 남음`);}
+let comboAnimation=null;
+function flashCombo(){
+  comboAnimation?.cancel();
+  if(game.combo<2)return;
+  const frames=prefs.reduce?[{opacity:.55},{opacity:.55}]:[{opacity:0,transform:'scale(.85)'},{opacity:.65,transform:'scale(1)',offset:.2},{opacity:0,transform:'scale(1.08)'}];
+  comboAnimation=$('#combo').animate(frames,{duration:prefs.reduce?500:800,easing:'ease-out'});
+}
 let lastSavedSecond=-1;
 function tick(now){const dt=now-lastFrame;lastFrame=now;if(phase==='playing'){game.tick(dt,!paused&&!busy);if(!paused&&!busy){hud();const second=Math.floor(game.elapsed/1000);if(second!==lastSavedSecond){lastSavedSecond=second;saveProgress();}}}requestAnimationFrame(tick);}requestAnimationFrame(tick);
 function syncTime(){if(phase==='playing'){const now=performance.now();game.tick(now-lastFrame,!paused&&!busy);lastFrame=now;}}
@@ -69,7 +91,7 @@ $('#board').addEventListener('pointercancel',()=>{pointer=null;clearSelection();
 $('#board').addEventListener('click',e=>{if(e.detail===0&&canInput()){const t=e.target.closest('.tile');if(t&&!t.disabled)choose(Number(t.dataset.index),selected);}});
 function choose(i,prior){unlockAudio();if(prior!=null&&prior!==i){attempt(prior,i);return;}if(prior===i){clearSelection();return;}selected=i;highlight(i);$('#equation').textContent=`${game.board[i]} ${game.op==='+'?'+':'−'} ? = ${game.target}`;}
 async function attempt(a,b){if(!canInput())return;busy=true;const token=serial;const x=game.board[a],y=game.board[b],result=game.attempt(a,b);saveProgress();clearSelection();if(!result.valid){busy=false;return;}$('#equation').textContent=`${x} ${game.op==='+'?'+':'−'} ${y} = ${game.op==='+'?x+y:x-y}`;sound(result.correct,result.correct?game.combo:0);if(!result.correct){tile(a).classList.add('wrong');tile(b).classList.add('wrong');$('#reward').textContent='괜찮아, 다시 해보자!';if(!await wait(prefs.reduce?30:320,token))return;tile(a).classList.remove('wrong');tile(b).classList.remove('wrong');busy=false;return;}
- hud();if(!prefs.reduce){$('#reward').animate([{opacity:0,transform:'translateY(6px)'},{opacity:1,transform:'translateY(0)'}],{duration:240});if(game.combo>=2)$('#combo').animate([{transform:'scale(1)'},{transform:`scale(${1+Math.min(game.combo,9)*.025})`},{transform:'scale(1)'}],{duration:300});}tile(a).classList.add('pop');tile(b).classList.add('pop');$('#reward').textContent=`${result.adjacencyBonus?'붙은 블록 보너스!':'잘했어!'} +${result.points}점 ✦`;if(game.ended){render();finish();return;}if(!await wait(prefs.reduce?30:230,token))return;
+ hud();flashCombo();if(!prefs.reduce){$('#reward').animate([{opacity:0,transform:'translateY(6px)'},{opacity:1,transform:'translateY(0)'}],{duration:240});}tile(a).classList.add('pop');tile(b).classList.add('pop');$('#reward').textContent=`${result.adjacencyBonus?'붙은 블록 보너스!':'잘했어!'} +${result.points}점 ✦`;if(game.ended){render();finish();return;}if(!await wait(prefs.reduce?30:230,token))return;
  const moves=game.settle();saveProgress();render();const animations=[];if(!prefs.reduce){const step=tile(10).getBoundingClientRect().top-tile(0).getBoundingClientRect().top;for(const m of moves)animations.push(tile(m.to).animate([{transform:`translateY(${(m.from-m.to)/10*step}px)`},{transform:'translateY(0)'}],{duration:280,easing:'cubic-bezier(.3,.1,.4,1)'}));}
  if(!await wait(prefs.reduce?30:290,token))return;animations.forEach(a=>a.cancel());if(game.refreshIfNeeded()){saveProgress();$('#board-message').textContent='숫자만 다시 섞기!';$('#board-message').hidden=false;if(!await wait(650,token))return;render();$('#board').classList.add('refreshing');$('#board-message').hidden=true;if(!await wait(350,token))return;$('#board').classList.remove('refreshing');}busy=false;
 }
