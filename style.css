@@ -38,8 +38,8 @@
 .choice-random-info{padding:17px 10px;border:1px dashed #adc8a7;border-radius:13px;background:#f4f8ed;color:#4d7453;text-align:center;font-size:14px;font-weight:800}
 .tile[data-number='10']:not(.selected):not(.hint){background:#f4c9be;color:#813e30}
 @media(min-width:721px){.play-active .brand{height:64px}.play-active #site-footer{display:none}.play{width:min(100%,550px,max(200px,calc(100dvh - 255px)))}.play .game-heading h2{margin:4px 0}.play .game-heading p{margin:3px 0 8px}.play .stats{padding:7px 6px}.play .game-footer{min-height:35px;padding:8px 3px}}
-.play{width:min(100%,550px,max(180px,calc(100dvh - 330px)))}
-@media(max-height:550px) and (orientation:landscape){.play{width:min(60vw,max(180px,calc(100dvh - 190px)))}.play .game-heading h2{font-size:15px;white-space:nowrap;margin:2px 0}.game-heading strong{font-size:20px}.stats{gap:4px}.stats>div{min-width:0}.stats strong{font-size:15px}.hint-button{padding:6px 4px;font-size:10px}.stats .icon-button{width:32px;height:32px;flex:none}#board{grid-template-columns:repeat(10,minmax(0,1fr));gap:2px}.tile{min-width:0;font-size:clamp(10px,3vh,16px)}}
+.play{width:min(100%,550px,max(180px,calc(100dvh - 350px - env(safe-area-inset-top) - env(safe-area-inset-bottom))))}
+@media(max-height:550px) and (orientation:landscape){.play{width:min(60vw,max(120px,calc(100dvh - 220px - env(safe-area-inset-top) - env(safe-area-inset-bottom))))}.play .game-heading h2{font-size:15px;white-space:nowrap;margin:2px 0}.game-heading strong{font-size:20px}.stats{gap:4px}.stats>div{min-width:0}.stats strong{font-size:15px}.hint-button{padding:6px 4px;font-size:10px}.stats .icon-button{width:32px;height:32px;flex:none}#board{grid-template-columns:repeat(10,minmax(0,1fr));gap:2px}.tile{min-width:0;font-size:clamp(10px,3vh,16px)}}
 
 /* 글자와 애니메이션이 숫자판의 크기를 늘리거나 배경 밖으로 나가지 않게 합니다. */
 #board-wrap{min-width:0;overflow:hidden;container-type:inline-size}
@@ -62,3 +62,13 @@ dialog{max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow-y:a
 
 /* 모바일 길게 누르기 메뉴와 텍스트 선택을 게임 영역에서 차단합니다. */
 #play,#play *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+
+/* 수식과 정답 안내를 크게 읽을 수 있도록 하단 공간을 확보합니다. */
+.play .game-footer{min-height:48px;padding:10px 3px 6px;text-align:center}
+#equation{font-size:clamp(22px,4vw,28px);font-weight:800;line-height:1.25;color:#42634c;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+#reward{height:auto;min-height:2.7em;padding:2px 4px 6px;font-size:clamp(18px,3.6vw,24px);font-weight:800;line-height:1.35;word-break:keep-all;overflow-wrap:anywhere}
+@media(max-height:550px) and (orientation:landscape){
+  .play .game-footer{min-height:32px;padding:5px 2px 2px}
+  #equation{font-size:20px}
+  #reward{font-size:16px;padding-bottom:2px}
+}
